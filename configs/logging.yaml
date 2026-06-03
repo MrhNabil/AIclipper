@@ -1,0 +1,106 @@
+# =============================================================================
+# AIClipper Logging Configuration
+# =============================================================================
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  json:
+    class: backend.utils.logging.JSONFormatter
+    datefmt: "%Y-%m-%dT%H:%M:%S"
+
+  console:
+    class: backend.utils.logging.ColorFormatter
+    datefmt: "%H:%M:%S"
+
+  standard:
+    format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: console
+    stream: ext://sys.stdout
+
+  app_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: ./logs/app.log
+    maxBytes: 10485760  # 10 MB
+    backupCount: 5
+    encoding: utf-8
+
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: json
+    filename: ./logs/errors.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf-8
+
+  processing_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: ./logs/processing.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf-8
+
+  upload_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: ./logs/uploads.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf-8
+
+  performance_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: ./logs/performance.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf-8
+
+loggers:
+  aiclipper:
+    level: DEBUG
+    handlers: [console, app_file, error_file]
+    propagate: false
+
+  aiclipper.processing:
+    level: DEBUG
+    handlers: [processing_file]
+    propagate: true
+
+  aiclipper.upload:
+    level: DEBUG
+    handlers: [upload_file]
+    propagate: true
+
+  aiclipper.performance:
+    level: DEBUG
+    handlers: [performance_file]
+    propagate: true
+
+  uvicorn:
+    level: INFO
+    handlers: [console]
+    propagate: false
+
+  sqlalchemy.engine:
+    level: WARNING
+    handlers: [console]
+    propagate: false
+
+root:
+  level: WARNING
+  handlers: [console]

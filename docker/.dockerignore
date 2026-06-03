@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+.env
+data/
+uploads/
+outputs/
+subtitles/
+thumbnails/
+logs/
+temp/
+models/
+*.db
+node_modules/
+.venv/

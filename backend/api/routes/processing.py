@@ -1,0 +1,168 @@
+"""
+AIClipper Processing Routes
+
+Endpoints for starting video processing, polling status, and
+receiving real-time progress over WebSocket.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.api.deps import get_db
+from backend.api.schemas import ErrorResponse, ProcessingStatusResponse
+from backend.database import crud
+from backend.database.models import VideoStatus
+from backend.utils.logging import get_logger
+
+logger = get_logger("api.processing")
+
+router = APIRouter(tags=["Processing"])
+
+
+@router.post(
+    "/api/process/{video_id}",
+    response_model=ProcessingStatusResponse,
+    responses={
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse, "description": "Video already processing or completed"},
+    },
+    summary="Start processing a video",
+    description="Kick off the AI processing pipeline for a video. "
+    "Currently sets the status to PROCESSING; the actual pipeline "
+    "integration will be added later.",
+)
+async def start_processing(
+    video_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> ProcessingStatusResponse:
+    """Mark the video as PROCESSING (pipeline stub)."""
+    video = await crud.get_video(db, video_id)
+    if video is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Video with id {video_id} not found.",
+        )
+
+    if video.status in (VideoStatus.PROCESSING, VideoStatus.COMPLETED):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Video is already {video.status.value}.",
+        )
+
+    await crud.update_video_status(
+        db,
+        video_id=video_id,
+        status=VideoStatus.PROCESSING,
+        progress=0,
+        step="queued",
+    )
+
+    logger.info(f"Processing started for video {video_id}", extra={"video_id": video_id})
+
+    return ProcessingStatusResponse(
+        video_id=video_id,
+        status=VideoStatus.PROCESSING.value,
+        progress=0,
+        step="queued",
+    )
+
+
+@router.get(
+    "/api/status/{video_id}",
+    response_model=ProcessingStatusResponse,
+    responses={404: {"model": ErrorResponse}},
+    summary="Get processing status",
+    description="Return the current processing progress for a video.",
+)
+async def get_processing_status(
+    video_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> ProcessingStatusResponse:
+    """Return the latest processing status from the DB."""
+    video = await crud.get_video(db, video_id)
+    if video is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Video with id {video_id} not found.",
+        )
+
+    return ProcessingStatusResponse(
+        video_id=video.id,
+        status=video.status.value if isinstance(video.status, VideoStatus) else str(video.status),
+        progress=video.processing_progress or 0,
+        step=video.processing_step,
+        error_message=video.error_message,
+    )
+
+
+# ---------------------------------------------------------------------------
+# WebSocket — Real-time progress
+# ---------------------------------------------------------------------------
+
+@router.websocket("/api/ws/progress/{video_id}")
+async def ws_progress(
+    websocket: WebSocket,
+    video_id: int,
+) -> None:
+    """
+    WebSocket endpoint that pushes processing progress for a given video.
+
+    The server polls the database every 2 seconds and pushes a JSON message
+    with the current status. The connection closes automatically when
+    processing is COMPLETED or FAILED, or if the client disconnects.
+    """
+    await websocket.accept()
+    logger.info(f"WebSocket connected for video {video_id}", extra={"video_id": video_id})
+
+    try:
+        while True:
+            # Open a fresh session for each poll to see committed changes
+            async for db in get_db():
+                video = await crud.get_video(db, video_id)
+
+            if video is None:
+                await websocket.send_json({"error": f"Video {video_id} not found"})
+                break
+
+            current_status = (
+                video.status.value if isinstance(video.status, VideoStatus) else str(video.status)
+            )
+
+            payload = {
+                "video_id": video.id,
+                "status": current_status,
+                "progress": video.processing_progress or 0,
+                "step": video.processing_step,
+                "error_message": video.error_message,
+            }
+
+            await websocket.send_json(payload)
+
+            # Stop polling when terminal state is reached
+            if current_status in ("completed", "failed"):
+                break
+
+            await asyncio.sleep(2)
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for video {video_id}", extra={"video_id": video_id})
+    except Exception as exc:
+        logger.error(
+            f"WebSocket error for video {video_id}: {exc}",
+            extra={"video_id": video_id},
+            exc_info=True,
+        )
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+# Re-export get_db so the WS handler can use it without circular import issues
+from backend.api.deps import get_db  # noqa: E402 — already imported at top; kept for clarity

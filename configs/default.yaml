@@ -1,0 +1,166 @@
+# =============================================================================
+# AIClipper Default Configuration
+# =============================================================================
+# This file contains default settings. Override via .env or environment variables.
+
+app:
+  name: AIClipper
+  version: "1.0.0"
+  description: "AI-powered local video clipping platform"
+
+# --- Clip Generation ---
+clips:
+  durations: [15, 30, 60]          # Available clip lengths in seconds
+  max_per_video: 10                 # Maximum clips to generate per video
+  min_gap_seconds: 10               # Minimum gap between selected clips
+  custom_duration_enabled: true     # Allow user-defined clip durations
+  smart_cut: true                   # Align cuts to word boundaries
+
+# --- Scoring Weights ---
+scoring:
+  weights:
+    emotion: 0.25
+    dialogue: 0.20
+    scene_change: 0.20
+    audio: 0.20
+    face: 0.15
+  min_score_threshold: 0.3          # Minimum score to consider a clip
+  normalization: "min_max"          # Score normalization method
+
+# --- Output ---
+output:
+  resolution:
+    width: 1080
+    height: 1920
+  fps: 30
+  codec: "libx264"
+  crf: 21                           # Quality (lower = better, 18-28 typical)
+  preset: "medium"                   # Encoding speed preset
+  audio_codec: "aac"
+  audio_bitrate: "192k"
+  format: "mp4"
+
+# --- Subtitles ---
+subtitles:
+  default_format: "burned"           # srt, vtt, burned
+  font:
+    family: "Arial"
+    size: 24
+    color: "#FFFFFF"
+    outline_color: "#000000"
+    outline_width: 2
+    shadow_color: "#33000000"
+    shadow_offset: 2
+  position: "bottom"                 # top, center, bottom
+  highlight:
+    enabled: true
+    color: "#FFD700"                 # Active word highlight color
+    style: "color"                   # color, background, underline
+  max_chars_per_line: 42
+  max_lines: 2
+  styles:
+    tiktok:
+      font_family: "Montserrat"
+      font_size: 28
+      font_color: "#FFFFFF"
+      highlight_color: "#FF0050"
+      position: "center"
+      outline_width: 3
+    youtube:
+      font_family: "Roboto"
+      font_size: 22
+      font_color: "#FFFFFF"
+      highlight_color: "#FFD700"
+      position: "bottom"
+      outline_width: 2
+    minimal:
+      font_family: "Arial"
+      font_size: 20
+      font_color: "#FFFFFF"
+      highlight_color: "#FFFFFF"
+      position: "bottom"
+      outline_width: 1
+
+# --- Whisper (Speech Recognition) ---
+whisper:
+  model: "small.en"                  # tiny, base, small, medium, large-v3
+  language: "auto"                   # auto-detect or ISO code (en, es, fr, etc.)
+  threads: 4                         # CPU threads for transcription
+  beam_size: 5
+  word_timestamps: true              # Enable word-level timestamps
+  max_segment_length: 0              # 0 = default segmentation
+
+# --- Scene Detection ---
+scene_detection:
+  detector: "content"                # content, threshold
+  content_threshold: 27.0            # ContentDetector sensitivity
+  threshold_value: 12.0              # ThresholdDetector value
+  min_scene_length_seconds: 2.0      # Minimum scene duration
+
+# --- Audio Analysis ---
+audio_analysis:
+  sample_rate: 22050
+  hop_length: 512
+  energy_threshold: 0.7              # Volume spike threshold (0-1)
+  laughter_threshold: 0.6            # Laughter detection confidence
+  segment_duration: 5.0              # Analysis window in seconds
+
+# --- Face Tracking ---
+face_tracking:
+  sample_every_n_frames: 3           # Process every Nth frame for CPU efficiency
+  min_detection_confidence: 0.5
+  smoothing_factor: 0.3              # Exponential moving average for crop smoothing
+  padding_ratio: 0.15                # Extra padding around face crop
+  multi_face_strategy: "largest"     # largest, centered, all
+
+# --- Ollama (Metadata Generation) ---
+ollama:
+  host: "http://localhost:11434"
+  model: "qwen2"                     # qwen2, llama3, gemma2
+  timeout: 120                       # Request timeout in seconds
+  temperature: 0.7
+  max_tokens: 500
+  prompts:
+    title: |
+      Generate an engaging, attention-grabbing title for a short video clip.
+      The title should be under 100 characters, suitable for YouTube Shorts and TikTok.
+      Based on this transcript: {transcript}
+      Return only the title, no quotes or extra text.
+    description: |
+      Write a compelling description for a short video clip.
+      Include a brief summary and call-to-action.
+      Keep it under 300 characters.
+      Based on this transcript: {transcript}
+      Return only the description.
+    hashtags: |
+      Generate 10-15 relevant hashtags for a short video clip.
+      Make them trending and platform-appropriate.
+      Based on this transcript: {transcript}
+      Return hashtags separated by spaces, each starting with #.
+
+# --- Thumbnails ---
+thumbnails:
+  count: 5                           # Number of candidate frames to evaluate
+  output_formats: ["png", "jpg"]
+  jpg_quality: 90
+  landscape_resolution: [1280, 720]
+  vertical_resolution: [1080, 1920]
+
+# --- Upload ---
+upload:
+  youtube:
+    category_id: "22"                # People & Blogs
+    default_privacy: "private"       # private, unlisted, public
+    shorts_tag: "#Shorts"
+    tags: []
+  facebook:
+    rate_limit_per_day: 30
+    video_state: "PUBLISHED"
+
+# --- Processing ---
+processing:
+  max_video_duration_seconds: 14400  # 4 hours max input
+  supported_formats: ["mp4", "mkv", "avi", "mov"]
+  max_file_size_mb: 4096             # 4 GB max
+  temp_dir: "./temp"
+  cleanup_temp: true

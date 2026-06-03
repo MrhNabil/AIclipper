@@ -1,0 +1,156 @@
+"""
+AIClipper FastAPI Application Factory
+
+Creates and configures the FastAPI app with middleware, static files,
+routers, lifespan events, and OpenAPI metadata.
+"""
+
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import AsyncGenerator
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from backend.database.engine import close_db, init_db
+from backend.utils.config import PROJECT_ROOT, get_settings
+from backend.utils.logging import get_logger, setup_logging
+
+logger = get_logger("api.app")
+
+
+# ---------------------------------------------------------------------------
+# Lifespan
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Application lifespan handler.
+
+    * Startup:  initialise logging, ensure directories, create DB tables.
+    * Shutdown: close the database engine cleanly.
+    """
+    # --- Startup ---
+    settings = get_settings()
+    setup_logging(settings.log_dir)
+    settings.ensure_directories()
+    await init_db()
+    logger.info(
+        f"AIClipper API started — env={settings.app_env}, "
+        f"debug={settings.app_debug}, port={settings.app_port}"
+    )
+    yield
+    # --- Shutdown ---
+    await close_db()
+    logger.info("AIClipper API shut down")
+
+
+# ---------------------------------------------------------------------------
+# App Factory
+# ---------------------------------------------------------------------------
+
+def create_app() -> FastAPI:
+    """Build and return the fully-configured FastAPI application."""
+    settings = get_settings()
+
+    app = FastAPI(
+        title="AIClipper API",
+        version="1.0.0",
+        description=(
+            "AI-powered local video clipping platform for generating "
+            "short-form vertical content from long-form videos."
+        ),
+        lifespan=lifespan,
+    )
+
+    # ------------------------------------------------------------------
+    # CORS — allow all origins for local development
+    # ------------------------------------------------------------------
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # ------------------------------------------------------------------
+    # Static file mounts
+    # ------------------------------------------------------------------
+    _mount_static(app, "/static", PROJECT_ROOT / "frontend", "static")
+    _mount_static(app, "/outputs", settings.output_dir, "outputs")
+    _mount_static(app, "/thumbnails", settings.thumbnail_dir, "thumbnails")
+
+    # ------------------------------------------------------------------
+    # Routers
+    # ------------------------------------------------------------------
+    from backend.api.routes.clips import router as clips_router
+    from backend.api.routes.processing import router as processing_router
+    from backend.api.routes.publishing import router as publishing_router
+    from backend.api.routes.settings import router as settings_router
+    from backend.api.routes.videos import router as videos_router
+
+    app.include_router(videos_router)
+    app.include_router(processing_router)
+    app.include_router(clips_router)
+    app.include_router(publishing_router)
+    app.include_router(settings_router)
+
+    # ------------------------------------------------------------------
+    # Health-check
+    # ------------------------------------------------------------------
+    @app.get(
+        "/api/health",
+        tags=["System"],
+        summary="Health check",
+        description="Simple health-check endpoint that returns service status.",
+    )
+    async def health_check() -> dict[str, str]:
+        """Return basic health status."""
+        return {"status": "ok", "service": "AIClipper API", "version": "1.0.0"}
+
+    return app
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _mount_static(app: FastAPI, path: str, directory: Path, name: str) -> None:
+    """Mount a StaticFiles directory, creating it first if needed."""
+    directory.mkdir(parents=True, exist_ok=True)
+    app.mount(path, StaticFiles(directory=str(directory)), name=name)
+
+
+# ---------------------------------------------------------------------------
+# Singleton app instance (used by uvicorn CLI: ``uvicorn backend.api.app:app``)
+# ---------------------------------------------------------------------------
+
+app = create_app()
+
+
+# ---------------------------------------------------------------------------
+# Entry-point (``python -m backend.api.app`` or ``aiclipper`` console script)
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    """Run the API server via uvicorn."""
+    import uvicorn
+
+    settings = get_settings()
+    uvicorn.run(
+        "backend.api.app:app",
+        host=settings.app_host,
+        port=settings.app_port,
+        reload=settings.app_debug,
+        log_level="info",
+    )
+
+
+if __name__ == "__main__":
+    main()

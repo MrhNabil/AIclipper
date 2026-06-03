@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AIClipper — AI-powered local video clipping platform for generating short-form vertical content from long videos.">
+    <meta name="keywords" content="AI, video clipping, short-form content, vertical video, TikTok, YouTube Shorts, Reels">
+    <meta name="author" content="AIClipper Team">
+    <meta name="theme-color" content="#0f0b1e">
+    <meta property="og:title" content="AIClipper — AI Video Clipper">
+    <meta property="og:description" content="Transform long videos into viral short-form clips with AI-powered scene detection, scoring, and subtitles.">
+    <meta property="og:type" content="website">
+    <title>AIClipper — AI Video Clipper</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/frontend/css/styles.css">
+</head>
+<body>
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SIDEBAR NAVIGATION                         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">AI<span class="logo-highlight">Clipper</span></span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="#projects" class="nav-item" data-page="projects">
+                <span class="nav-icon">📁</span>
+                <span class="nav-label">Projects</span>
+            </a>
+            <a href="#upload" class="nav-item" data-page="upload">
+                <span class="nav-icon">⬆️</span>
+                <span class="nav-label">Upload</span>
+            </a>
+            <a href="#processing" class="nav-item" data-page="processing">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Processing</span>
+            </a>
+            <a href="#clips" class="nav-item" data-page="clips">
+                <span class="nav-icon">🎞️</span>
+                <span class="nav-label">Clips</span>
+            </a>
+            <a href="#publishing" class="nav-item" data-page="publishing">
+                <span class="nav-icon">🚀</span>
+                <span class="nav-label">Publishing</span>
+            </a>
+
+            <div class="nav-divider"></div>
+
+            <a href="#settings" class="nav-item" data-page="settings">
+                <span class="nav-icon">⚡</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="version-badge">v1.0.0</div>
+        </div>
+    </aside>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MAIN CONTENT AREA                          -->
+    <!-- ═══════════════════════════════════════════ -->
+    <main class="main-content" id="mainContent">
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">☰</button>
+                <h1 class="page-title" id="pageTitle">Dashboard</h1>
+            </div>
+            <div class="top-bar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" placeholder="Search clips, projects..." class="search-input" id="globalSearch">
+                </div>
+                <button class="btn btn-icon notification-btn" id="notificationBtn" aria-label="Notifications">
+                    🔔
+                    <span class="notification-dot" id="notificationDot"></span>
+                </button>
+            </div>
+        </header>
+
+        <div class="content-area" id="contentArea">
+            <!-- Pages are rendered here by app.js -->
+            <div class="loading-screen" id="loadingScreen">
+                <div class="spinner"></div>
+                <p>Loading AIClipper...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODAL CONTAINER                            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalContent">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle"></h2>
+                <button class="modal-close" id="modalClose" aria-label="Close modal">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- TOAST NOTIFICATION CONTAINER               -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- JAVASCRIPT MODULES                         -->
+    <!-- ═══════════════════════════════════════════ -->
+    <script src="/frontend/js/api.js"></script>
+    <script src="/frontend/js/components.js"></script>
+    <script src="/frontend/js/app.js"></script>
+</body>
+</html>
