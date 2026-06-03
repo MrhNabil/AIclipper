@@ -40,7 +40,7 @@ async def start_processing(
     video_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> ProcessingStatusResponse:
-    """Mark the video as PROCESSING (pipeline stub)."""
+    """Start the AI processing pipeline for a video."""
     video = await crud.get_video(db, video_id)
     if video is None:
         raise HTTPException(
@@ -64,12 +64,25 @@ async def start_processing(
 
     logger.info(f"Processing started for video {video_id}", extra={"video_id": video_id})
 
+    # Launch the pipeline as a background task
+    asyncio.create_task(_run_pipeline_background(video_id))
+
     return ProcessingStatusResponse(
         video_id=video_id,
         status=VideoStatus.PROCESSING.value,
         progress=0,
         step="queued",
     )
+
+
+async def _run_pipeline_background(video_id: int) -> None:
+    """Run the pipeline in the background, catching all exceptions."""
+    try:
+        from backend.services.pipeline import process_video_pipeline
+        result = await process_video_pipeline(video_id)
+        logger.info(f"Background pipeline completed for video {video_id}: {result.get('clips_generated', 0)} clips")
+    except Exception as e:
+        logger.error(f"Background pipeline failed for video {video_id}: {e}", exc_info=True)
 
 
 @router.get(
