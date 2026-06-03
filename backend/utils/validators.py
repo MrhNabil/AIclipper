@@ -45,7 +45,7 @@ def validate_file_extension(filename: str) -> str:
     """
     ext = Path(filename).suffix.lower()
     settings = get_settings()
-    supported = {f".{fmt}" for fmt in settings.supported_formats}
+    supported = {f".{fmt}" for fmt in settings.supported_formats_list}
     if ext not in supported:
         raise ValidationError(
             f"Unsupported file format '{ext}'. Supported: {', '.join(sorted(supported))}",
