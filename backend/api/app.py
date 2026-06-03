@@ -112,7 +112,29 @@ def create_app() -> FastAPI:
     )
     async def health_check() -> dict[str, str]:
         """Return basic health status."""
-        return {"status": "ok", "service": "AIClipper API", "version": "1.0.0"}
+        return {"status": "healthy", "service": "AIClipper API", "version": "1.0.0"}
+
+    # ------------------------------------------------------------------
+    # Serve frontend SPA
+    # ------------------------------------------------------------------
+    from fastapi.responses import FileResponse
+
+    index_html = PROJECT_ROOT / "frontend" / "index.html"
+
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
+        """Serve the main SPA page."""
+        return FileResponse(str(index_html), media_type="text/html")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Catch-all route for SPA — serve static files or fall back to index.html."""
+        # Try to serve the file from frontend directory
+        file_path = PROJECT_ROOT / "frontend" / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        # Fall back to index.html for SPA routing
+        return FileResponse(str(index_html), media_type="text/html")
 
     return app
 
