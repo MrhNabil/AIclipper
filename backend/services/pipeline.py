@@ -84,7 +84,8 @@ async def process_video_pipeline(
         transcript_data = {}
         try:
             from backend.services.transcription import transcribe_video
-            transcript_data = transcribe_video(
+            transcript_data = await asyncio.to_thread(
+                transcribe_video,
                 video_path,
                 language=settings.whisper_language,
                 model_name=settings.whisper_model,
@@ -113,7 +114,7 @@ async def process_video_pipeline(
         scenes_data: list[dict] = []
         try:
             from backend.services.scene_detection import detect_scenes
-            scenes_data = detect_scenes(video_path)
+            scenes_data = await asyncio.to_thread(detect_scenes, video_path)
             async with get_session_context() as session:
                 await crud.create_scenes_batch(session, video_id, scenes_data)
             results["steps"]["scene_detection"] = f"success ({len(scenes_data)} scenes)"
@@ -134,8 +135,8 @@ async def process_video_pipeline(
 
             audio_path = settings.temp_dir / f"audio_{video_id}.wav"
             settings.temp_dir.mkdir(parents=True, exist_ok=True)
-            extract_audio(video_path, audio_path)
-            audio_segments = analyze_audio(audio_path)
+            await asyncio.to_thread(extract_audio, video_path, audio_path)
+            audio_segments = await asyncio.to_thread(analyze_audio, audio_path)
             results["steps"]["audio_analysis"] = f"success ({len(audio_segments)} segments)"
 
             # Clean up temp audio
@@ -154,7 +155,8 @@ async def process_video_pipeline(
         face_data: list[dict] = []
         try:
             from backend.services.face_tracking import track_faces
-            face_data = track_faces(
+            face_data = await asyncio.to_thread(
+                track_faces,
                 video_path,
                 sample_every_n=settings.face_sample_every_n_frames,
             )
@@ -184,7 +186,8 @@ async def process_video_pipeline(
                 "audio": settings.scoring_weights.audio,
                 "face": settings.scoring_weights.face,
             }
-            scored_clips = score_clips(
+            scored_clips = await asyncio.to_thread(
+                score_clips,
                 video_duration=video_duration,
                 transcript=transcript_data,
                 scenes=scenes_data,
@@ -244,7 +247,8 @@ async def process_video_pipeline(
                 ]
 
                 try:
-                    generate_clip(
+                    await asyncio.to_thread(
+                        generate_clip,
                         video_path=video_path,
                         output_path=output_path,
                         start_time=clip_info["start"],
@@ -296,13 +300,13 @@ async def process_video_pipeline(
 
                 # SRT
                 srt_path = settings.subtitle_dir / f"clip_{video_id}_{clip_id}.srt"
-                generate_srt(segments, srt_path, clip_start=clip_info["start"], clip_end=clip_info["end"])
+                await asyncio.to_thread(generate_srt, segments, srt_path, clip_info["start"], clip_info["end"])
                 async with get_session_context() as session:
                     await crud.create_subtitle(session, clip_id, SubtitleFormat.SRT, str(srt_path))
 
                 # VTT
                 vtt_path = settings.subtitle_dir / f"clip_{video_id}_{clip_id}.vtt"
-                generate_vtt(segments, vtt_path, clip_start=clip_info["start"], clip_end=clip_info["end"])
+                await asyncio.to_thread(generate_vtt, segments, vtt_path, clip_info["start"], clip_info["end"])
                 async with get_session_context() as session:
                     await crud.create_subtitle(session, clip_id, SubtitleFormat.VTT, str(vtt_path))
 
@@ -366,7 +370,8 @@ async def process_video_pipeline(
                 clip_thumb_dir = settings.thumbnail_dir / f"clip_{clip_id}"
                 clip_thumb_dir.mkdir(parents=True, exist_ok=True)
 
-                thumbs = generate_thumbnails(
+                thumbs = await asyncio.to_thread(
+                    generate_thumbnails,
                     video_path=video_path,
                     output_dir=clip_thumb_dir,
                     clip_start=clip_info["start"],
