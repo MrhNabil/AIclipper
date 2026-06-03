@@ -335,48 +335,185 @@ const App = {
 
     async _renderProcessing(el) {
         const data = await api.listVideos(0, 50);
-        const videos = (data.videos || []).filter(v => v.status === 'processing' || v.status === 'pending');
+        const allVideos = data.videos || [];
+        const processingVideos = allVideos.filter(v => v.status === 'processing');
+        const pendingVideos = allVideos.filter(v => v.status === 'pending');
+        const completedVideos = allVideos.filter(v => v.status === 'completed' || v.status === 'failed');
 
-        el.innerHTML = `
-            <div class="processing-page">
-                <div class="panel">
-                    <div class="panel-header"><h2>Active Processing</h2></div>
-                    <div class="panel-body" id="processingList">
-                        ${videos.length === 0
-                            ? renderEmptyState('⚙️', 'No videos are currently processing', '<button class="btn btn-primary" onclick="App.navigate(\'upload\')">Upload a Video</button>')
-                            : videos.map(renderVideoCard).join('')
+        // If there's an active processing video, show the detailed panel
+        if (processingVideos.length > 0) {
+            const activeVideo = processingVideos[0];
+            // Fetch full detail for the active video
+            let videoDetail = activeVideo;
+            try {
+                videoDetail = await api.getVideo(activeVideo.id);
+            } catch { /* use list data */ }
+
+            el.innerHTML = `
+                <div class="processing-page">
+                    ${renderProcessingPanel(videoDetail)}
+
+                    ${pendingVideos.length > 0 ? `
+                        <div class="panel" style="margin-top: 1.5rem;">
+                            <div class="panel-header"><h2>⏳ Queued (${pendingVideos.length})</h2></div>
+                            <div class="panel-body">${pendingVideos.map(renderVideoCard).join('')}</div>
+                        </div>
+                    ` : ''}
+
+                    ${completedVideos.length > 0 ? `
+                        <div class="panel" style="margin-top: 1.5rem;">
+                            <div class="panel-header"><h2>📦 History</h2></div>
+                            <div class="panel-body">${completedVideos.slice(0, 5).map(renderVideoCard).join('')}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Start elapsed timer
+            this._processingStartTime = this._processingStartTime || Date.now();
+            this._startElapsedTimer();
+
+            // Connect WebSocket for real-time updates
+            this._lastLogStep = '';
+            this._logCount = 1;
+            api.connectProgress(activeVideo.id, (wsData) => {
+                const progress = wsData.progress || 0;
+                const step = wsData.step || 'Processing...';
+
+                // Update progress bar
+                const fill = document.getElementById('progressFill');
+                const pct = document.getElementById('progressPct');
+                const stepText = document.getElementById('currentStepText');
+                if (fill) fill.style.width = progress + '%';
+                if (pct) pct.textContent = progress + '%';
+                if (stepText) stepText.textContent = step;
+
+                // Update pipeline timeline steps
+                const STEP_RANGES = [
+                    { key: 'transcription', range: [0, 20] },
+                    { key: 'scene_detection', range: [20, 35] },
+                    { key: 'audio_analysis', range: [35, 50] },
+                    { key: 'face_tracking', range: [50, 65] },
+                    { key: 'clip_scoring', range: [65, 70] },
+                    { key: 'clip_generation', range: [70, 85] },
+                    { key: 'subtitles', range: [85, 90] },
+                    { key: 'metadata', range: [90, 95] },
+                    { key: 'thumbnails', range: [95, 100] },
+                ];
+
+                STEP_RANGES.forEach(s => {
+                    const stepEl = document.querySelector(`[data-step="${s.key}"]`);
+                    if (!stepEl) return;
+                    stepEl.classList.remove('pipeline-step-pending', 'pipeline-step-active', 'pipeline-step-done');
+                    if (progress >= s.range[1]) {
+                        stepEl.classList.add('pipeline-step-done');
+                        const dot = stepEl.querySelector('.step-dot');
+                        if (dot) dot.innerHTML = '✓';
+                        // Update badges
+                        const hdr = stepEl.querySelector('.step-header');
+                        if (hdr && !hdr.querySelector('.step-done-badge')) {
+                            const activeBadge = hdr.querySelector('.step-active-badge');
+                            if (activeBadge) activeBadge.remove();
+                            hdr.insertAdjacentHTML('beforeend', '<span class="step-done-badge">Done</span>');
                         }
-                    </div>
-                </div>
-                <div class="panel">
-                    <div class="panel-header"><h2>All Videos</h2></div>
-                    <div class="panel-body" id="allVideosList">${renderSpinner()}</div>
-                </div>
-            </div>
-        `;
+                    } else if (progress >= s.range[0]) {
+                        stepEl.classList.add('pipeline-step-active');
+                        const dot = stepEl.querySelector('.step-dot');
+                        if (dot && !dot.querySelector('.step-pulse')) dot.innerHTML = '<div class="step-pulse"></div>';
+                        const hdr = stepEl.querySelector('.step-header');
+                        if (hdr && !hdr.querySelector('.step-active-badge')) {
+                            hdr.insertAdjacentHTML('beforeend', '<span class="step-active-badge">Running</span>');
+                        }
+                    } else {
+                        stepEl.classList.add('pipeline-step-pending');
+                        const dot = stepEl.querySelector('.step-dot');
+                        if (dot) dot.innerHTML = '';
+                    }
+                });
 
-        // Load all videos
-        const allData = await api.listVideos(0, 50);
-        const allEl = document.getElementById('allVideosList');
-        allEl.innerHTML = (allData.videos || []).map(renderVideoCard).join('') || renderEmptyState('🎥', 'No videos');
+                // Add activity log entries when step changes
+                if (step !== this._lastLogStep) {
+                    this._addLogEntry(step, progress);
+                    this._lastLogStep = step;
+                }
 
-        // Set up WebSocket for processing videos
-        videos.filter(v => v.status === 'processing').forEach(v => {
-            api.connectProgress(v.id, (data) => {
-                const card = document.querySelector(`[data-video-id="${v.id}"]`);
-                if (!card) return;
-                const fill = card.querySelector('.progress-fill');
-                const label = card.querySelector('.progress-label span:first-child');
-                if (fill) fill.style.width = (data.progress || 0) + '%';
-                if (label) label.textContent = data.step || 'Processing...';
-
-                if (data.status === 'completed' || data.status === 'failed') {
-                    api.disconnectProgress(v.id);
-                    Toast.show(data.status === 'completed' ? 'Processing complete!' : 'Processing failed', data.status === 'completed' ? 'success' : 'error');
-                    setTimeout(() => this.navigate('processing'), 1000);
+                // Handle completion
+                if (wsData.status === 'completed' || wsData.status === 'failed') {
+                    api.disconnectProgress(activeVideo.id);
+                    this._stopElapsedTimer();
+                    this._processingStartTime = null;
+                    const isSuccess = wsData.status === 'completed';
+                    Toast.show(
+                        isSuccess ? '🎉 Processing complete! Check your clips.' : '❌ Processing failed.',
+                        isSuccess ? 'success' : 'error',
+                        6000
+                    );
+                    this._addLogEntry(isSuccess ? '✅ Pipeline finished!' : '❌ Pipeline failed: ' + (wsData.error_message || 'Unknown error'), progress);
+                    // Refresh page after a delay
+                    setTimeout(() => this.navigate(isSuccess ? 'clips' : 'processing'), 3000);
                 }
             });
-        });
+
+        } else {
+            // No active processing — show queue and history
+            el.innerHTML = `
+                <div class="processing-page">
+                    <div class="panel">
+                        <div class="panel-header"><h2>Active Processing</h2></div>
+                        <div class="panel-body">
+                            ${renderEmptyState('⚙️', 'No videos are currently processing',
+                                '<button class="btn btn-primary" onclick="App.navigate(\'upload\')">Upload a Video</button>')}
+                        </div>
+                    </div>
+                    ${allVideos.length > 0 ? `
+                        <div class="panel" style="margin-top: 1.5rem;">
+                            <div class="panel-header"><h2>All Videos</h2></div>
+                            <div class="panel-body">${allVideos.map(renderVideoCard).join('')}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    },
+
+    _elapsedInterval: null,
+
+    _startElapsedTimer() {
+        this._stopElapsedTimer();
+        this._elapsedInterval = setInterval(() => {
+            const el = document.getElementById('elapsedTime');
+            if (!el || !this._processingStartTime) return;
+            const elapsed = Math.floor((Date.now() - this._processingStartTime) / 1000);
+            const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const s = (elapsed % 60).toString().padStart(2, '0');
+            el.textContent = `${m}:${s}`;
+        }, 1000);
+    },
+
+    _stopElapsedTimer() {
+        if (this._elapsedInterval) {
+            clearInterval(this._elapsedInterval);
+            this._elapsedInterval = null;
+        }
+    },
+
+    _addLogEntry(message, progress) {
+        const feed = document.getElementById('activityFeed');
+        const countEl = document.getElementById('logCount');
+        if (!feed) return;
+        this._logCount = (this._logCount || 0) + 1;
+        const time = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        entry.className = 'activity-entry activity-entry-new';
+        entry.innerHTML = `
+            <span class="activity-time">${time}</span>
+            <span class="activity-progress">${progress}%</span>
+            <span class="activity-msg">${message}</span>
+        `;
+        feed.insertBefore(entry, feed.firstChild);
+        if (countEl) countEl.textContent = `${this._logCount} events`;
+        // Keep max 50 entries
+        while (feed.children.length > 50) feed.removeChild(feed.lastChild);
     },
 
     // ─────────────────────────────────────────────
