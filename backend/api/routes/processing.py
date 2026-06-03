@@ -48,10 +48,10 @@ async def start_processing(
             detail=f"Video with id {video_id} not found.",
         )
 
-    if video.status in (VideoStatus.PROCESSING, VideoStatus.COMPLETED):
+    if video.status == VideoStatus.PROCESSING:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Video is already {video.status.value}.",
+            detail="Video is already being processed.",
         )
 
     await crud.update_video_status(

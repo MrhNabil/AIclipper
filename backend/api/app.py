@@ -32,7 +32,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Application lifespan handler.
 
-    * Startup:  initialise logging, ensure directories, create DB tables.
+    * Startup:  initialise logging, ensure directories, create DB tables,
+                recover stuck processing jobs.
     * Shutdown: close the database engine cleanly.
     """
     # --- Startup ---
@@ -40,6 +41,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging(settings.log_dir)
     settings.ensure_directories()
     await init_db()
+
+    # Auto-recover videos stuck in "processing" from a previous crash
+    try:
+        from backend.database.engine import get_session_context
+        from backend.database import crud
+        from backend.database.models import VideoStatus
+        from sqlalchemy import select, update
+        from backend.database.models import Video
+
+        async with get_session_context() as session:
+            result = await session.execute(
+                select(Video).where(Video.status == VideoStatus.PROCESSING)
+            )
+            stuck_videos = result.scalars().all()
+            if stuck_videos:
+                for v in stuck_videos:
+                    await crud.update_video_status(
+                        session, v.id,
+                        status=VideoStatus.PENDING,
+                        progress=0,
+                        step=None,
+                        error=None,
+                    )
+                logger.info(f"Auto-recovered {len(stuck_videos)} stuck video(s) to PENDING")
+    except Exception as e:
+        logger.warning(f"Auto-recovery check failed: {e}")
+
     logger.info(
         f"AIClipper API started — env={settings.app_env}, "
         f"debug={settings.app_debug}, port={settings.app_port}"
