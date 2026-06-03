@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -169,7 +169,7 @@ class Settings(BaseSettings):
     ffprobe_path: str = "ffprobe"
 
     # --- Clip Settings ---
-    clip_durations: list[int] = [15, 30, 60]
+    clip_durations: str = "15,30,60"
     max_clips_per_video: int = 10
     min_clip_gap_seconds: int = 10
 
@@ -184,7 +184,7 @@ class Settings(BaseSettings):
 
     # --- Processing Limits ---
     max_video_duration_seconds: int = 14400  # 4 hours
-    supported_formats: list[str] = ["mp4", "mkv", "avi", "mov"]
+    supported_formats: str = "mp4,mkv,avi,mov"
     max_file_size_mb: int = 4096
 
     # --- YouTube ---
@@ -201,19 +201,19 @@ class Settings(BaseSettings):
     facebook_page_id: str = ""
     facebook_access_token: str = ""
 
-    @field_validator("clip_durations", mode="before")
-    @classmethod
-    def _parse_clip_durations(cls, v: Any) -> list[int]:
-        if isinstance(v, str):
-            return [int(x.strip()) for x in v.split(",")]
-        return v
+    @property
+    def clip_durations_list(self) -> list[int]:
+        """Parse clip_durations string into list of ints."""
+        if isinstance(self.clip_durations, list):
+            return self.clip_durations
+        return [int(x.strip()) for x in self.clip_durations.split(",") if x.strip()]
 
-    @field_validator("supported_formats", mode="before")
-    @classmethod
-    def _parse_formats(cls, v: Any) -> list[str]:
-        if isinstance(v, str):
-            return [x.strip().lower() for x in v.split(",")]
-        return v
+    @property
+    def supported_formats_list(self) -> list[str]:
+        """Parse supported_formats string into list of strings."""
+        if isinstance(self.supported_formats, list):
+            return self.supported_formats
+        return [x.strip().lower() for x in self.supported_formats.split(",") if x.strip()]
 
     def ensure_directories(self) -> None:
         """Create all required directories if they don't exist."""
