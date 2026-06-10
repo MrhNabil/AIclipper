@@ -264,7 +264,6 @@ class ClipListResponse(BaseModel):
 
 class ClipDetailResponse(BaseModel):
     """Full clip detail with subtitles, thumbnails, and upload history."""
-
     id: int
     video_id: int
     clip_number: int
@@ -279,13 +278,14 @@ class ClipDetailResponse(BaseModel):
     keywords: str | None = None
     status: str
     output_path: str | None = None
-    crop_data_json: dict[str, Any] | None = None
+    
+    crop_data_json: list[Any] | None = None
+    
     created_at: datetime
     updated_at: datetime | None = None
     subtitles: list[SubtitleSchema] = Field(default_factory=list)
     thumbnails: list[ThumbnailSchema] = Field(default_factory=list)
     uploads: list[UploadSchema] = Field(default_factory=list)
-
     model_config = {"from_attributes": True}
 
 
