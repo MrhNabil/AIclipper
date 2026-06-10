@@ -203,6 +203,7 @@ def convert_vertical(
         "-crf", str(settings.output_settings.crf),
         "-preset", settings.output_settings.preset,
         "-c:a", settings.output_settings.audio_codec,
+        "-ac", "2",  # Downmix to stereo (AAC encoder can't handle 5.1)
         "-b:a", settings.output_settings.audio_bitrate,
         "-r", str(settings.output_settings.fps),
         "-y", str(output_path),
@@ -260,6 +261,7 @@ def apply_dynamic_crop(
         "-crf", str(settings.output_settings.crf),
         "-preset", settings.output_settings.preset,
         "-c:a", settings.output_settings.audio_codec,
+        "-ac", "2",  # Downmix to stereo (AAC encoder can't handle 5.1)
         "-b:a", settings.output_settings.audio_bitrate,
         "-r", str(settings.output_settings.fps),
         "-y", str(output_path),
