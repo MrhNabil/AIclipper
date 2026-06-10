@@ -546,29 +546,56 @@ const App = {
             const downloadUrl = api.getClipDownloadUrl(clipId);
             const score = clip.total_score != null ? (clip.total_score * 100).toFixed(1) : '—';
 
+            // Build score breakdown HTML
+            let breakdownHtml = '';
+            if (clip.score_breakdown_json) {
+                const bd = clip.score_breakdown_json;
+                const items = [
+                    { label: 'Emotion', val: bd.emotion || 0, icon: '💡' },
+                    { label: 'Dialogue', val: bd.dialogue || 0, icon: '💬' },
+                    { label: 'Scene', val: bd.scene_change || 0, icon: '🎬' },
+                    { label: 'Audio', val: bd.audio || 0, icon: '🔊' },
+                    { label: 'Face', val: bd.face || 0, icon: '👤' },
+                ];
+                breakdownHtml = `
+                    <div class="clip-score-breakdown">
+                        ${items.map(it => `
+                            <div class="clip-score-item">
+                                <span class="score-label">${it.icon} ${it.label}</span>
+                                <div class="score-bar"><div class="score-fill" style="width:${(it.val * 100).toFixed(0)}%"></div></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
             Modal.open(clip.title || `Clip #${clip.clip_number}`, `
                 <div class="clip-detail">
                     ${clip.output_path ? `
-                        <video controls class="clip-video-player" preload="metadata">
+                        <video controls class="clip-video-player" preload="metadata" autoplay>
                             <source src="/outputs/${clip.output_path.split(/[/\\\\]/).pop()}" type="video/mp4">
                         </video>
-                    ` : '<div class="clip-thumb-placeholder" style="height:300px;">🎬 No preview</div>'}
+                    ` : '<div class="clip-thumb-placeholder" style="height:400px;">🎬 No preview</div>'}
 
-                    <div class="clip-detail-meta">
-                        <div class="detail-row"><span>Duration</span><span>${formatDuration(clip.duration)}</span></div>
-                        <div class="detail-row"><span>AI Score</span><span>🎯 ${score}%</span></div>
-                        <div class="detail-row"><span>Time Range</span><span>${formatDuration(clip.start_time)} → ${formatDuration(clip.end_time)}</span></div>
-                        <div class="detail-row"><span>Status</span>${renderStatusBadge(clip.status)}</div>
+                    <div>
+                        <div class="clip-detail-meta">
+                            <div class="detail-row"><span>Duration</span><span>${formatDuration(clip.duration)}</span></div>
+                            <div class="detail-row"><span>AI Score</span><span>🎯 ${score}%</span></div>
+                            <div class="detail-row"><span>Time Range</span><span>${formatDuration(clip.start_time)} → ${formatDuration(clip.end_time)}</span></div>
+                            <div class="detail-row"><span>Status</span>${renderStatusBadge(clip.status)}</div>
+                        </div>
+
+                        ${breakdownHtml}
+
+                        ${clip.description ? `<p class="clip-description">${escapeHtml(clip.description)}</p>` : ''}
+                        ${clip.hashtags ? `<div class="clip-hashtags">${escapeHtml(clip.hashtags)}</div>` : ''}
                     </div>
-
-                    ${clip.description ? `<p class="clip-description">${escapeHtml(clip.description)}</p>` : ''}
-                    ${clip.hashtags ? `<div class="clip-hashtags">${escapeHtml(clip.hashtags)}</div>` : ''}
                 </div>
             `, `
                 <a href="${downloadUrl}" class="btn btn-primary" download>⬇️ Download</a>
                 <button class="btn btn-secondary" onclick="App.publishClipDialog(${clipId})">🚀 Publish</button>
                 <button class="btn btn-danger" onclick="App.deleteClip(${clipId})">🗑️ Delete</button>
-            `);
+            `, 'lg');
         } catch (e) { Toast.error(e.message); }
     },
 

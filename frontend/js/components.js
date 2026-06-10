@@ -72,11 +72,16 @@ const Modal = {
         });
     },
 
-    open(title, bodyHtml, footerHtml = '') {
+    open(title, bodyHtml, footerHtml = '', size = '') {
         if (!this._overlay) this._init();
         this._title.textContent = title;
         this._body.innerHTML = bodyHtml;
         this._footer.innerHTML = footerHtml;
+        const modal = this._overlay.querySelector('.modal');
+        if (modal) {
+            modal.classList.remove('modal-lg');
+            if (size === 'lg') modal.classList.add('modal-lg');
+        }
         this._overlay.classList.add('active');
         document.body.style.overflow = 'hidden';
     },
