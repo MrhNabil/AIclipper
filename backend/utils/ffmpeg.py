@@ -214,6 +214,37 @@ def convert_vertical(
 
 
 @timed(logger_name="processing")
+def reencode_clip(
+    input_path: Path,
+    output_path: Path,
+) -> Path:
+    """
+    Re-encode a clip keeping the original aspect ratio.
+
+    Applies H.264/AAC encoding with stereo downmix but preserves
+    the source video dimensions and aspect ratio.
+
+    Returns:
+        Path to the re-encoded video
+    """
+    settings = get_settings()
+
+    args = [
+        "-i", str(input_path),
+        "-c:v", settings.output_settings.codec,
+        "-crf", str(settings.output_settings.crf),
+        "-preset", settings.output_settings.preset,
+        "-c:a", settings.output_settings.audio_codec,
+        "-ac", "2",  # Downmix to stereo (AAC encoder can't handle 5.1)
+        "-b:a", settings.output_settings.audio_bitrate,
+        "-y", str(output_path),
+    ]
+
+    _run_ffmpeg(args, f"Re-encode of {input_path.name}")
+    return output_path
+
+
+@timed(logger_name="processing")
 def apply_dynamic_crop(
     input_path: Path,
     output_path: Path,

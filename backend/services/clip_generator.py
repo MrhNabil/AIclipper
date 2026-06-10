@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.utils.config import get_settings
-from backend.utils.ffmpeg import apply_dynamic_crop, convert_vertical, cut_clip
+from backend.utils.ffmpeg import cut_clip, reencode_clip
 from backend.utils.logging import get_logger, timed
 
 logger = get_logger("services.clip_generator")
@@ -56,9 +56,7 @@ def generate_clip(
 
     Steps:
         1. Cut the time range from the source video (stream-copy for speed).
-        2. If *crop_data* is provided, apply face-aware dynamic cropping
-           to produce a 1080×1920 vertical output.  Otherwise, convert to
-           vertical with centre-pad.
+        2. Re-encode to H.264/AAC keeping the original aspect ratio.
         3. Return the path to the final clip file.
 
     Args:
@@ -66,8 +64,7 @@ def generate_clip(
         output_path: Desired output file path (e.g. ``clip_001.mp4``).
         start_time: Clip start in seconds.
         end_time: Clip end in seconds.
-        crop_data: Optional face-tracking crop timeline for the *entire*
-            source video.  Will be filtered to the clip range internally.
+        crop_data: Optional face-tracking crop timeline (reserved for future use).
 
     Returns:
         Path to the generated clip file.
@@ -79,7 +76,7 @@ def generate_clip(
     duration = end_time - start_time
 
     logger.info(
-        f"Generating clip {start_time:.1f}s – {end_time:.1f}s "
+        f"Generating clip {start_time:.1f}s - {end_time:.1f}s "
         f"({duration:.1f}s) from '{video_path.name}'"
     )
 
@@ -95,16 +92,9 @@ def generate_clip(
         reencode=False,  # fast stream-copy
     )
 
-    # ── 2. Apply crop / vertical conversion ─────────────────────────────
+    # ── 2. Re-encode keeping original aspect ratio ──────────────────────
     try:
-        if crop_data:
-            clip_crops = _crop_data_for_range(crop_data, start_time, end_time)
-            if clip_crops:
-                apply_dynamic_crop(raw_cut_path, output_path, clip_crops)
-            else:
-                convert_vertical(raw_cut_path, output_path)
-        else:
-            convert_vertical(raw_cut_path, output_path)
+        reencode_clip(raw_cut_path, output_path)
     finally:
         # Clean up intermediate raw cut
         try:
@@ -115,3 +105,4 @@ def generate_clip(
 
     logger.info(f"Clip generated: {output_path.name}")
     return output_path
+
