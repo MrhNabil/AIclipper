@@ -1,26 +1,27 @@
-"""Quick end-to-end test: cut a 30s clip and convert to vertical."""
-import sys, os
-sys.path.insert(0, os.getcwd())
-
+"""Reset video for re-processing with new pipeline."""
+import asyncio
 from pathlib import Path
-from backend.utils.ffmpeg import cut_clip, convert_vertical
+from backend.database.engine import init_db, get_session_context
+from backend.database import crud
+from backend.database.models import VideoStatus, Clip, Subtitle, Thumbnail
+from sqlalchemy import delete
 
-src = Path("uploads/76445fa2649d41b790208c331a8555c4.mp4")
-raw = Path("temp/e2e_test_raw.mp4")
-final = Path("temp/e2e_test_final.mp4")
+async def main():
+    await init_db()
+    async with get_session_context() as s:
+        # Delete old clips and their files
+        clips = await crud.list_clips(s, video_id=1)
+        for c in clips:
+            if c.output_path:
+                p = Path(c.output_path)
+                if p.exists():
+                    p.unlink()
+                    print(f"  Deleted: {p}")
 
-Path("temp").mkdir(exist_ok=True)
+        await s.execute(delete(Subtitle))
+        await s.execute(delete(Thumbnail))
+        await s.execute(delete(Clip).where(Clip.video_id == 1))
+        await crud.update_video_status(s, 1, status=VideoStatus.PENDING, progress=0, step=None, error=None)
+        print("Video 1 reset to PENDING. Ready for new pipeline.")
 
-print("Step 1: Cutting 30s clip from 5:00...")
-cut_clip(src, raw, start_time=300, duration=30)
-print(f"  Raw clip: {raw.stat().st_size / 1024:.0f} KB")
-
-print("Step 2: Converting to 1080x1920 vertical...")
-convert_vertical(raw, final)
-print(f"  Final clip: {final.stat().st_size / 1024:.0f} KB")
-
-print("\nSUCCESS! Pipeline is working.")
-
-# Cleanup
-raw.unlink(missing_ok=True)
-final.unlink(missing_ok=True)
+asyncio.run(main())

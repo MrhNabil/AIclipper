@@ -245,6 +245,41 @@ def reencode_clip(
 
 
 @timed(logger_name="processing")
+def convert_shorts_format(
+    input_path: Path,
+    output_path: Path,
+) -> Path:
+    """
+    Convert a clip to YouTube Shorts 1080x1920 format with a blurred background.
+    """
+    from backend.utils.validators import probe_video
+    settings = get_settings()
+
+    probe_data = probe_video(input_path)
+
+    vf = (
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25:5[bg];"
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];"
+        "[bg][fg]overlay=(W-w)/2:(H-h)/2"
+    )
+
+    args = [
+        "-i", str(input_path),
+        "-filter_complex", vf,
+        "-c:v", settings.output_settings.codec,
+        "-crf", str(settings.output_settings.crf),
+        "-preset", settings.output_settings.preset,
+        "-c:a", settings.output_settings.audio_codec,
+        "-ac", "2",
+        "-b:a", settings.output_settings.audio_bitrate,
+        "-y", str(output_path),
+    ]
+
+    _run_ffmpeg(args, f"Shorts format conversion of {input_path.name}")
+    return output_path
+
+
+@timed(logger_name="processing")
 def apply_dynamic_crop(
     input_path: Path,
     output_path: Path,

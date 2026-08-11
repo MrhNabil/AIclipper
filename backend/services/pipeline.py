@@ -149,6 +149,19 @@ async def process_video_pipeline(
         await _update_progress(video_id, 50, "Audio analysis complete", progress_callback)
 
         # =====================================================================
+        # Step 3.5: Copyright Detection
+        # =====================================================================
+        await _update_progress(video_id, 51, "Detecting copyright segments...", progress_callback)
+        copyright_segments: list[dict] = []
+        try:
+            from backend.services.copyright_detector import detect_copyright_segments, get_copyright_score_for_range
+            copyright_segments = await asyncio.to_thread(detect_copyright_segments, video_path)
+            results["steps"]["copyright_detection"] = f"success ({len(copyright_segments)} segments)"
+        except Exception as e:
+            logger.error(f"Copyright detection failed: {e}\n{traceback.format_exc()}")
+            results["steps"]["copyright_detection"] = f"failed: {str(e)}"
+
+        # =====================================================================
         # Step 4: Face Tracking (50-65%)
         # =====================================================================
         await _update_progress(video_id, 52, "Tracking faces...", progress_callback)
@@ -193,7 +206,8 @@ async def process_video_pipeline(
                 scenes=scenes_data,
                 audio_segments=audio_segments,
                 face_data=face_data,
-                clip_durations=settings.clip_durations_list,
+                copyright_segments=copyright_segments,
+                clip_durations=[60],
                 weights=weights,
                 max_clips=settings.max_clips_per_video,
                 min_gap=float(settings.min_clip_gap_seconds),
@@ -289,7 +303,7 @@ async def process_video_pipeline(
         # =====================================================================
         await _update_progress(video_id, 86, "Generating subtitles...", progress_callback)
         try:
-            from backend.services.subtitles import generate_srt, generate_vtt
+            from backend.services.subtitles import generate_srt, generate_vtt, generate_ass_with_highlights
 
             settings.subtitle_dir.mkdir(parents=True, exist_ok=True)
             segments = transcript_data.get("segments", [])
@@ -309,6 +323,13 @@ async def process_video_pipeline(
                 await asyncio.to_thread(generate_vtt, segments, vtt_path, clip_info["start"], clip_info["end"])
                 async with get_session_context() as session:
                     await crud.create_subtitle(session, clip_id, SubtitleFormat.VTT, str(vtt_path))
+
+                # ASS
+                ass_path = settings.subtitle_dir / f"clip_{video_id}_{clip_id}.ass"
+                await asyncio.to_thread(generate_ass_with_highlights, segments, ass_path, clip_info["start"], clip_info["end"])
+                async with get_session_context() as session:
+                    # Use BURNED or add ASS to SubtitleFormat enum
+                    await crud.create_subtitle(session, clip_id, SubtitleFormat.BURNED, str(ass_path))
 
             results["steps"]["subtitles"] = "success"
         except Exception as e:
@@ -338,7 +359,7 @@ async def process_video_pipeline(
                 if not clip_text:
                     clip_text = transcript_data.get("full_text", "")[:500]
 
-                metadata = generate_metadata(clip_text, model=settings.ollama_model)
+                metadata = await asyncio.to_thread(generate_metadata, clip_text, model=settings.ollama_model)
                 async with get_session_context() as session:
                     await crud.update_clip(
                         session, clip_id,

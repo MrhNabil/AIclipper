@@ -283,8 +283,10 @@ def generate_metadata(
         provider = "ollama"
 
     # Resolve model
-    if model is None:
-        model = settings.ollama_model if provider == "ollama" else _PROVIDERS[provider]["default_model"]
+    if provider == "ollama":
+        model = model or settings.ollama_model
+    else:
+        model = _PROVIDERS[provider]["default_model"]
 
     # Truncate very long transcripts
     max_chars = 3000

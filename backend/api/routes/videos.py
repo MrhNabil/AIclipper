@@ -48,6 +48,7 @@ router = APIRouter(tags=["Videos"])
 )
 async def upload_video(
     file: UploadFile,
+    project_id: int | None = Query(None, description="Optional Project ID"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     config: Settings = Depends(get_config),
@@ -90,13 +91,14 @@ async def upload_video(
             detail=exc.message,
         )
 
-    # Ensure a default project exists for the user
-    projects = await crud.list_projects(db, user_id=user.id, limit=1)
-    if projects:
-        project_id = projects[0].id
-    else:
-        project = await crud.create_project(db, user_id=user.id, name="Default Project")
-        project_id = project.id
+    # Ensure a default project exists for the user if project_id not provided
+    if project_id is None:
+        projects = await crud.list_projects(db, user_id=user.id, limit=1)
+        if projects:
+            project_id = projects[0].id
+        else:
+            project = await crud.create_project(db, user_id=user.id, name="Default Project")
+            project_id = project.id
 
     # Create the video record
     video = await crud.create_video(

@@ -166,6 +166,10 @@ def _non_maximum_suppression(
         # Check gap to every already-selected clip
         overlaps = False
         for sel in selected:
+            # strict non-overlap: if time ranges intersect
+            if cand["start"] < sel["end"] and cand["end"] > sel["start"]:
+                overlaps = True
+                break
             gap = max(
                 cand["start"] - sel["end"],
                 sel["start"] - cand["end"],
@@ -189,10 +193,11 @@ def score_clips(
     scenes: list[dict[str, Any]],
     audio_segments: list[dict[str, Any]],
     face_data: list[dict[str, Any]],
+    copyright_segments: list[dict[str, Any]] | None = None,
     clip_durations: list[int] | None = None,
     weights: dict[str, float] | None = None,
     max_clips: int = 10,
-    min_gap: float = 10.0,
+    min_gap: float = 60.0,
 ) -> list[dict[str, Any]]:
     """
     Score and select the best candidate clips from a video.
@@ -234,8 +239,7 @@ def score_clips(
             ]
     """
     settings = get_settings()
-    if clip_durations is None:
-        clip_durations = settings.clip_durations
+    clip_durations = [60]  # Hardcoded to 60 seconds as requested
     if weights is None:
         sw = settings.scoring_weights
         weights = {
@@ -272,13 +276,20 @@ def score_clips(
             aud = _audio_score(audio_segments, win_start, win_end)
             fac = _face_score(face_data, win_start, win_end)
 
+            cp_score = 0.0
+            if copyright_segments:
+                cp_segs = _items_in_window(copyright_segments, win_start, win_end)
+                if cp_segs:
+                    avg_music_score = sum(s.get("music_score", 0.0) for s in cp_segs) / len(cp_segs)
+                    cp_score = 0.5 * avg_music_score
+
             total = (
                 weights["emotion"] * emo
                 + weights["dialogue"] * dia
                 + weights["scene_change"] * sc
                 + weights["audio"] * aud
                 + weights["face"] * fac
-            )
+            ) - cp_score
 
             all_candidates.append({
                 "start": round(win_start, 3),

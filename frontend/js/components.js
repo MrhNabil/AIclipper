@@ -153,7 +153,7 @@ function renderStatusBadge(status) {
 
 function renderClipCard(clip) {
     const thumbSrc = clip.thumbnails && clip.thumbnails.length > 0
-        ? `/thumbnails/${clip.thumbnails[0].filepath.split(/[/\\]/).pop()}`
+        ? `/${clip.thumbnails[0].filepath.replace(/\\/g, '/')}`
         : '';
     const score = clip.total_score != null ? (clip.total_score * 100).toFixed(0) : '—';
     const duration = clip.duration ? formatDuration(clip.duration) : '—';

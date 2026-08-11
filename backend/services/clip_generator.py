@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.utils.config import get_settings
-from backend.utils.ffmpeg import cut_clip, reencode_clip
+from backend.utils.ffmpeg import cut_clip, convert_shorts_format
 from backend.utils.logging import get_logger, timed
 
 logger = get_logger("services.clip_generator")
@@ -56,7 +56,7 @@ def generate_clip(
 
     Steps:
         1. Cut the time range from the source video (stream-copy for speed).
-        2. Re-encode to H.264/AAC keeping the original aspect ratio.
+        2. Convert to YouTube Shorts format (1080x1920 with blurred background).
         3. Return the path to the final clip file.
 
     Args:
@@ -92,9 +92,9 @@ def generate_clip(
         reencode=False,  # fast stream-copy
     )
 
-    # ── 2. Re-encode keeping original aspect ratio ──────────────────────
+    # ── 2. Convert to YouTube Shorts format ────────────────────────────────
     try:
-        reencode_clip(raw_cut_path, output_path)
+        convert_shorts_format(raw_cut_path, output_path)
     finally:
         # Clean up intermediate raw cut
         try:

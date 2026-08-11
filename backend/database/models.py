@@ -19,6 +19,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -289,7 +290,7 @@ class Setting(Base):
 
     # Unique constraint on (user_id, key)
     __table_args__ = (
-        # SQLAlchemy unique constraint
+        UniqueConstraint('user_id', 'key', name='uq_user_setting_key'),
         {"sqlite_autoincrement": True},
     )
 
