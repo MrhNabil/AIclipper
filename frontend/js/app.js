@@ -112,6 +112,20 @@ const App = {
             ? Math.round((stats.completed_clips / stats.total_clips) * 100) : 0;
 
         el.innerHTML = `
+            <div class="dashboard-hero">
+                <div class="hero-content">
+                    <h2 class="hero-title">Welcome to <span class="gradient-text">AIClipper</span></h2>
+                    <p class="hero-subtitle">Transform your videos into viral short-form content with AI</p>
+                </div>
+                <div class="hero-actions">
+                    <button class="btn btn-primary btn-lg" onclick="App.navigate('upload')">
+                        <span>⬆️</span> Upload Video
+                    </button>
+                    <button class="btn btn-secondary btn-lg" onclick="App.navigate('clips')">
+                        <span>🎞️</span> Browse Clips
+                    </button>
+                </div>
+            </div>
             <div class="dashboard-grid">
                 <div class="stats-row">
                     ${renderStatsCard('🎥', 'Total Videos', stats.total_videos, '#3B82F6')}
@@ -258,6 +272,15 @@ const App = {
     async _renderUpload(el) {
         el.innerHTML = `
             <div class="upload-page">
+                <div class="upload-header" style="margin-bottom: 2rem; text-align: center;">
+                    <h2 style="font-size: 2rem; margin-bottom: 0.5rem;">Upload Video for AI Clipping</h2>
+                    <p class="text-muted" style="margin-bottom: 1rem;">Supported formats: MP4, MKV, AVI, MOV (Max 4GB)</p>
+                    <div class="upload-features" style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem;">
+                        <span class="badge badge-info" style="font-size: 1rem; padding: 0.5rem 1rem;">✨ AI Scoring</span>
+                        <span class="badge badge-info" style="font-size: 1rem; padding: 0.5rem 1rem;">👤 Face Tracking</span>
+                        <span class="badge badge-info" style="font-size: 1rem; padding: 0.5rem 1rem;">🛡️ Copyright Safe</span>
+                    </div>
+                </div>
                 ${renderDropzone()}
                 <div class="upload-status" id="uploadStatus" style="display:none;">
                     <div class="upload-file-info" id="uploadFileInfo"></div>
@@ -349,8 +372,36 @@ const App = {
                 videoDetail = await api.getVideo(activeVideo.id);
             } catch { /* use list data */ }
 
+            const PIPELINE_STEPS = [
+                { key: 'transcription', label: 'Transcription', icon: '🎙️', range: [0, 20] },
+                { key: 'scene_detection', label: 'Scenes', icon: '🎬', range: [20, 35] },
+                { key: 'audio_analysis', label: 'Audio', icon: '🔊', range: [35, 50] },
+                { key: 'face_tracking', label: 'Faces', icon: '👤', range: [50, 65] },
+                { key: 'clip_scoring', label: 'Scoring', icon: '🎯', range: [65, 70] },
+                { key: 'clip_generation', label: 'Clips', icon: '✂️', range: [70, 85] },
+                { key: 'subtitles', label: 'Subs', icon: '💬', range: [85, 90] },
+                { key: 'metadata', label: 'Meta', icon: '🏷️', range: [90, 95] },
+                { key: 'thumbnails', label: 'Thumbs', icon: '🖼️', range: [95, 100] },
+            ];
+
+            const progress = videoDetail.processing_progress || 0;
+            const stepsHtml = PIPELINE_STEPS.map(s => {
+                let state = 'pending';
+                if (progress >= s.range[1]) state = 'done';
+                else if (progress >= s.range[0]) state = 'active';
+                return `
+                    <div class="stepper-item stepper-${state}" data-stepper="${s.key}" style="display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1;">
+                        <div class="stepper-icon" style="font-size: 1.5rem; background: var(--bg-secondary); padding: 10px; border-radius: 50%; border: 2px solid ${state === 'done' ? 'var(--accent-success)' : state === 'active' ? 'var(--accent-primary)' : 'transparent'}; transition: all 0.3s ease;">${s.icon}</div>
+                        <div class="stepper-label" style="font-size: 0.8rem; color: ${state === 'pending' ? 'var(--text-muted)' : 'var(--text-primary)'}; transition: color 0.3s ease;">${s.label}</div>
+                    </div>
+                `;
+            }).join('');
+
             el.innerHTML = `
                 <div class="processing-page">
+                    <div class="visual-stepper" style="display: flex; justify-content: space-between; margin-bottom: 2rem; background: var(--bg-surface); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); overflow-x: auto;">
+                        ${stepsHtml}
+                    </div>
                     ${renderProcessingPanel(videoDetail)}
 
                     ${pendingVideos.length > 0 ? `
@@ -403,31 +454,52 @@ const App = {
 
                 STEP_RANGES.forEach(s => {
                     const stepEl = document.querySelector(`[data-step="${s.key}"]`);
-                    if (!stepEl) return;
-                    stepEl.classList.remove('pipeline-step-pending', 'pipeline-step-active', 'pipeline-step-done');
-                    if (progress >= s.range[1]) {
-                        stepEl.classList.add('pipeline-step-done');
-                        const dot = stepEl.querySelector('.step-dot');
-                        if (dot) dot.innerHTML = '✓';
-                        // Update badges
-                        const hdr = stepEl.querySelector('.step-header');
-                        if (hdr && !hdr.querySelector('.step-done-badge')) {
-                            const activeBadge = hdr.querySelector('.step-active-badge');
-                            if (activeBadge) activeBadge.remove();
-                            hdr.insertAdjacentHTML('beforeend', '<span class="step-done-badge">Done</span>');
+                    if (stepEl) {
+                        stepEl.classList.remove('pipeline-step-pending', 'pipeline-step-active', 'pipeline-step-done');
+                        if (progress >= s.range[1]) {
+                            stepEl.classList.add('pipeline-step-done');
+                            const dot = stepEl.querySelector('.step-dot');
+                            if (dot) dot.innerHTML = '✓';
+                            // Update badges
+                            const hdr = stepEl.querySelector('.step-header');
+                            if (hdr && !hdr.querySelector('.step-done-badge')) {
+                                const activeBadge = hdr.querySelector('.step-active-badge');
+                                if (activeBadge) activeBadge.remove();
+                                hdr.insertAdjacentHTML('beforeend', '<span class="step-done-badge">Done</span>');
+                            }
+                        } else if (progress >= s.range[0]) {
+                            stepEl.classList.add('pipeline-step-active');
+                            const dot = stepEl.querySelector('.step-dot');
+                            if (dot && !dot.querySelector('.step-pulse')) dot.innerHTML = '<div class="step-pulse"></div>';
+                            const hdr = stepEl.querySelector('.step-header');
+                            if (hdr && !hdr.querySelector('.step-active-badge')) {
+                                hdr.insertAdjacentHTML('beforeend', '<span class="step-active-badge">Running</span>');
+                            }
+                        } else {
+                            stepEl.classList.add('pipeline-step-pending');
+                            const dot = stepEl.querySelector('.step-dot');
+                            if (dot) dot.innerHTML = '';
                         }
-                    } else if (progress >= s.range[0]) {
-                        stepEl.classList.add('pipeline-step-active');
-                        const dot = stepEl.querySelector('.step-dot');
-                        if (dot && !dot.querySelector('.step-pulse')) dot.innerHTML = '<div class="step-pulse"></div>';
-                        const hdr = stepEl.querySelector('.step-header');
-                        if (hdr && !hdr.querySelector('.step-active-badge')) {
-                            hdr.insertAdjacentHTML('beforeend', '<span class="step-active-badge">Running</span>');
+                    }
+                    
+                    // Update visual stepper
+                    const stepperEl = document.querySelector(`[data-stepper="${s.key}"]`);
+                    if (stepperEl) {
+                        const iconEl = stepperEl.querySelector('.stepper-icon');
+                        const labelEl = stepperEl.querySelector('.stepper-label');
+                        if (progress >= s.range[1]) {
+                            stepperEl.className = 'stepper-item stepper-done';
+                            if (iconEl) iconEl.style.border = '2px solid var(--accent-success)';
+                            if (labelEl) labelEl.style.color = 'var(--text-primary)';
+                        } else if (progress >= s.range[0]) {
+                            stepperEl.className = 'stepper-item stepper-active';
+                            if (iconEl) iconEl.style.border = '2px solid var(--accent-primary)';
+                            if (labelEl) labelEl.style.color = 'var(--text-primary)';
+                        } else {
+                            stepperEl.className = 'stepper-item stepper-pending';
+                            if (iconEl) iconEl.style.border = '2px solid transparent';
+                            if (labelEl) labelEl.style.color = 'var(--text-muted)';
                         }
-                    } else {
-                        stepEl.classList.add('pipeline-step-pending');
-                        const dot = stepEl.querySelector('.step-dot');
-                        if (dot) dot.innerHTML = '';
                     }
                 });
 

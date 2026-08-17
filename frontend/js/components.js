@@ -3,6 +3,10 @@
  * Toast notifications, modals, progress bars, cards, dropzones, etc.
  */
 
+function gradientText(text) {
+    return `<span class="gradient-text">${text}</span>`;
+}
+
 // ─────────────────────────────────────────────
 // Toast Notification System
 // ─────────────────────────────────────────────
@@ -112,10 +116,11 @@ const Modal = {
 // Component Renderers
 // ─────────────────────────────────────────────
 
-function renderStatsCard(icon, label, value, color = 'var(--accent-primary)') {
+function renderStatsCard(icon, label, value, color = 'var(--accent-violet)') {
     return `
         <div class="stats-card">
-            <div class="stats-icon" style="background: ${color}20; color: ${color};">${icon}</div>
+            <div class="stats-card-glow" style="background: ${color}"></div>
+            <div class="stats-icon" style="background: linear-gradient(135deg, ${color}22, ${color}44); color: ${color};">${icon}</div>
             <div class="stats-info">
                 <span class="stats-value">${value}</span>
                 <span class="stats-label">${label}</span>
