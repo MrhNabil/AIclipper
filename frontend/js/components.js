@@ -162,22 +162,31 @@ function renderClipCard(clip) {
         : '';
     const score = clip.total_score != null ? (clip.total_score * 100).toFixed(0) : '—';
     const duration = clip.duration ? formatDuration(clip.duration) : '—';
+    const downloadUrl = `/api/clips/${clip.id}/download`;
 
     return `
-        <div class="clip-card" data-clip-id="${clip.id}" onclick="App.viewClip(${clip.id})">
-            <div class="clip-thumbnail">
+        <div class="clip-card" data-clip-id="${clip.id}">
+            <div class="clip-card-thumbnail" onclick="App.viewClip(${clip.id})">
                 ${thumbSrc
                     ? `<img src="${thumbSrc}" alt="Clip ${clip.clip_number}" loading="lazy">`
                     : `<div class="clip-thumb-placeholder">🎬</div>`
                 }
-                <div class="clip-duration-badge">${duration}</div>
-                <div class="clip-play-overlay">▶</div>
+                <div class="clip-card-overlay">
+                    <button class="play-button" title="Preview clip">▶</button>
+                </div>
+                <div class="clip-card-duration">${duration}</div>
+                <div class="clip-card-score"><span class="badge badge-info">🎯 ${score}%</span></div>
             </div>
-            <div class="clip-info">
-                <h3 class="clip-title">${clip.title || `Clip #${clip.clip_number}`}</h3>
-                <div class="clip-meta">
-                    <span class="clip-score" title="AI Score">🎯 ${score}%</span>
+            <div class="clip-card-body">
+                <h3 class="clip-card-title">${clip.title || `Clip #${clip.clip_number}`}</h3>
+                <div class="clip-card-meta">
+                    <span>${formatDuration(clip.start_time)} → ${formatDuration(clip.end_time)}</span>
                     ${renderStatusBadge(clip.status)}
+                </div>
+                <div class="clip-card-actions">
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); App.viewClip(${clip.id})" title="Preview">▶ Preview</button>
+                    <a href="${downloadUrl}" class="btn btn-sm btn-secondary" onclick="event.stopPropagation()" download title="Download">⬇️</a>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); App.deleteClip(${clip.id})" title="Delete">🗑️</button>
                 </div>
             </div>
         </div>

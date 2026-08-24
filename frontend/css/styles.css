@@ -1232,6 +1232,28 @@ body {
     border-top: 1px solid var(--glass-border);
 }
 
+.clip-card-actions .btn:first-child {
+    flex: 1;
+}
+
+.clip-card-actions .btn-danger,
+.clip-card-actions .btn-secondary {
+    flex: 0 0 auto;
+    padding: var(--space-2);
+    min-width: 36px;
+    text-align: center;
+}
+
+.clip-card-thumbnail .clip-thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(6,182,212,0.05));
+}
+
 /* ─────────────── VIDEO PLAYER ─────────────── */
 .video-player-wrapper {
     position: relative;
