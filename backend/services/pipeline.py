@@ -207,7 +207,7 @@ async def process_video_pipeline(
                 audio_segments=audio_segments,
                 face_data=face_data,
                 copyright_segments=copyright_segments,
-                clip_durations=[60],
+                clip_durations=[60, 75, 90],
                 weights=weights,
                 max_clips=settings.max_clips_per_video,
                 min_gap=float(settings.min_clip_gap_seconds),

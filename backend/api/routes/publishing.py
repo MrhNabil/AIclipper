@@ -4,9 +4,9 @@ AIClipper Publishing Routes
 Endpoints for publishing clips to social platforms and fetching analytics.
 """
 
-from __future__ import annotations
+import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.deps import get_db
@@ -18,6 +18,7 @@ from backend.api.schemas import (
 )
 from backend.database import crud
 from backend.database.models import Platform
+from backend.database.engine import get_session_context
 from backend.utils.logging import get_logger
 
 logger = get_logger("api.publishing")
@@ -78,6 +79,61 @@ async def publish_clip(
     return PublishResponse.model_validate(upload)
 
 
+async def _youtube_upload_task(upload_id: int, filepath: str, title: str, description: str, tags: list[str], privacy: str):
+    try:
+        from backend.services.uploaders.youtube import YouTubeUploader
+        uploader = YouTubeUploader()
+        uploader.authenticate()
+        video_id = uploader.upload_video(filepath, title, description, tags, privacy)
+        
+        async with get_session_context() as session:
+            upload = await crud.get_upload(session, upload_id)
+            if upload:
+                await crud.update_upload(session, upload_id, status="COMPLETED", platform_id=video_id)
+    except Exception as e:
+        logger.error(f"YouTube upload failed: {e}")
+        async with get_session_context() as session:
+            await crud.update_upload(session, upload_id, status="FAILED", error=str(e))
+
+
+@router.post("/api/publish/batch/{video_id}")
+async def batch_publish_to_youtube(
+    video_id: int,
+    privacy: str = Query(default="public"),
+    db: AsyncSession = Depends(get_db),
+):
+    clips = await crud.get_clips_by_video(db, video_id)
+    queued = 0
+    
+    youtube_platform = _PLATFORM_MAP.get("youtube", Platform.YOUTUBE)
+    
+    for clip in clips:
+        if clip.status.value == "completed" and clip.output_path:
+            title = clip.title or f"Clip {clip.clip_number}"
+            description = clip.description or ""
+            tags = clip.hashtags.split() if clip.hashtags else []
+            
+            upload = await crud.create_upload(
+                db,
+                clip_id=clip.id,
+                platform=youtube_platform,
+            )
+            
+            asyncio.create_task(
+                _youtube_upload_task(
+                    upload.id, 
+                    str(clip.output_path), 
+                    title, 
+                    description, 
+                    tags, 
+                    privacy
+                )
+            )
+            queued += 1
+
+    return {"queued": queued, "message": f"Queued {queued} clips for YouTube upload."}
+
+
 @router.get(
     "/api/analytics",
     response_model=AnalyticsResponse,
@@ -91,3 +147,88 @@ async def get_analytics(
     """Return dashboard-level aggregate stats."""
     stats = await crud.get_dashboard_stats(db)
     return AnalyticsResponse(**stats)
+
+
+async def _upload_clip_to_youtube(clip_id: int, upload_id: int, title: str, description: str, tags: list[str], privacy: str, output_path: str):
+    """Background task to upload a clip to YouTube."""
+    from backend.services.uploaders.youtube import YouTubeUploader
+    from backend.database.engine import get_session_context
+    from backend.database.models import UploadStatus
+
+    uploader = YouTubeUploader()
+    try:
+        # Assuming authenticate() uses default credentials
+        await asyncio.to_thread(uploader.authenticate)
+        
+        # upload_video(file_path, title, description, tags, privacy_status)
+        result = await asyncio.to_thread(
+            uploader.upload_video,
+            file_path=output_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy_status=privacy
+        )
+        
+        async with get_session_context() as session:
+            await crud.update_upload(
+                session, 
+                upload_id, 
+                status=UploadStatus.PUBLISHED,
+                url=result.get("url"),
+                platform_video_id=result.get("video_id")
+            )
+    except Exception as e:
+        logger.error(f"YouTube upload failed for clip {clip_id}: {e}")
+        async with get_session_context() as session:
+            await crud.update_upload(
+                session, 
+                upload_id, 
+                status=UploadStatus.FAILED,
+                error_message=str(e)
+            )
+
+
+from fastapi import Query
+import asyncio
+from backend.database.models import ClipStatus, Platform
+
+@router.post("/api/publish/batch/{video_id}")
+async def batch_publish_to_youtube(
+    video_id: int,
+    privacy: str = Query(default="public"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch publish all completed clips for a video to YouTube."""
+    clips = await crud.list_clips(db, video_id=video_id, status=ClipStatus.COMPLETED)
+    queued_count = 0
+    
+    for clip in clips:
+        if not clip.output_path:
+            continue
+            
+        title = clip.title or f"Clip {clip.id}"
+        description = clip.description or ""
+        hashtags = clip.hashtags or ""
+        tags = [t.strip().strip('#') for t in hashtags.split()] if hashtags else []
+        
+        upload = await crud.create_upload(
+            db,
+            clip_id=clip.id,
+            platform=Platform.YOUTUBE,
+        )
+        
+        asyncio.create_task(
+            _upload_clip_to_youtube(
+                clip_id=clip.id,
+                upload_id=upload.id,
+                title=title,
+                description=description,
+                tags=tags,
+                privacy=privacy,
+                output_path=clip.output_path
+            )
+        )
+        queued_count += 1
+        
+    return {"queued_clips": queued_count}

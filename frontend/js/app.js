@@ -599,8 +599,9 @@ const App = {
 
         el.innerHTML = `
             <div class="clips-page">
-                <div class="page-actions">
+                <div class="page-actions" style="display: flex; justify-content: space-between; align-items: center;">
                     <span class="text-muted">${clips.length} clip${clips.length !== 1 ? 's' : ''} found</span>
+                    ${clips.length > 0 ? '<button class="btn btn-primary" onclick="App.batchUploadToYouTube()">🚀 Upload All to YouTube</button>' : ''}
                 </div>
                 <div class="clips-grid" id="clipsGrid">
                     ${clips.length === 0
@@ -679,6 +680,59 @@ const App = {
                 this.navigate('clips');
             } catch (e) { Toast.error(e.message); }
         });
+    },
+
+    async batchUploadToYouTube() {
+        let vid = this.state.video_id;
+        if (!vid) {
+            try {
+                const data = await api.listClips(0, 1);
+                if (data.clips && data.clips.length > 0) vid = data.clips[0].video_id;
+            } catch(e) {}
+        }
+        if (!vid) { Toast.error('No video found'); return; }
+
+        Modal.open('Upload All Clips to YouTube', `
+            <div style="text-align: center; padding: 1rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">This will upload all completed clips to YouTube as Shorts with their AI-generated titles, descriptions, and hashtags.</p>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="color: var(--text-secondary); font-size: 0.9rem;">Privacy Setting:
+                        <select id="ytPrivacy" class="form-input" style="margin-left: 0.5rem; width: auto; display: inline-block; min-width: 140px;">
+                            <option value="public">🌍 Public</option>
+                            <option value="unlisted">🔗 Unlisted</option>
+                            <option value="private">🔒 Private</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="batchUploadStatus"></div>
+            </div>
+        `, `
+            <button class="btn btn-secondary" onclick="Modal.close()">Cancel</button>
+            <button class="btn btn-primary" id="startBatchUploadBtn" onclick="App._startBatchUpload(${vid})">🚀 Start Upload</button>
+        `, 'lg');
+    },
+
+    async _startBatchUpload(videoId) {
+        const btn = document.getElementById('startBatchUploadBtn');
+        const status = document.getElementById('batchUploadStatus');
+        const privacy = document.getElementById('ytPrivacy')?.value || 'public';
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Uploading...'; }
+        status.innerHTML = '<p style="color: var(--accent-cyan);">Starting batch upload...</p>';
+        try {
+            const res = await fetch(`/api/publish/batch/${videoId}?privacy=${privacy}`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                status.innerHTML = `<p style="color: var(--success);">✅ ${data.queued || 0} clips queued for YouTube upload!</p>`;
+                Toast.success(`${data.queued || 0} clips queued for YouTube!`);
+            } else {
+                status.innerHTML = `<p style="color: var(--error);">❌ ${data.detail || 'Upload failed'}</p>`;
+                Toast.error(data.detail || 'Upload failed');
+            }
+        } catch(e) {
+            status.innerHTML = `<p style="color: var(--error);">❌ ${e.message}</p>`;
+            Toast.error(e.message);
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '🚀 Start Upload'; }
     },
 
     // ─────────────────────────────────────────────

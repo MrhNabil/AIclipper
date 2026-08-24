@@ -405,7 +405,8 @@ body {
 
 .page-title {
     font-size: var(--font-3xl);
-    font-weight: 800;
+    font-family: 'Outfit', var(--font-family);
+    font-weight: 700;
     letter-spacing: -0.02em;
     background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
     -webkit-background-clip: text;
@@ -989,6 +990,11 @@ body {
     border-radius: var(--radius-full);
     box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
 }
+
+.badge-success { background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1)); border: 1px solid rgba(16,185,129,0.3); color: var(--success); }
+.badge-info { background: linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.1)); border: 1px solid rgba(6,182,212,0.3); color: var(--info); }
+.badge-warning { background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.1)); border: 1px solid rgba(245,158,11,0.3); color: var(--warning); }
+.badge-danger { background: linear-gradient(135deg, rgba(244,63,94,0.2), rgba(244,63,94,0.1)); border: 1px solid rgba(244,63,94,0.3); color: var(--error); }
 
 @keyframes badgePulse {
     0%, 100% { opacity: 1; }
@@ -1620,9 +1626,9 @@ body {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1654,7 +1660,7 @@ body {
 }
 
 .modal.modal-lg {
-    max-width: 900px;
+    max-width: 960px;
 }
 
 .modal-overlay.active .modal {
@@ -2749,19 +2755,19 @@ body::after {
 
 /* ─────────────── CLIP DETAIL VIEWER ─────────────── */
 .clip-detail {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: var(--space-6);
-    align-items: start;
 }
 
 .clip-video-player {
     width: 100%;
-    max-height: 70vh;
+    max-height: 65vh;
     border-radius: var(--radius-xl);
     background: #000;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--glass-border);
+    object-fit: contain;
 }
 
 .clip-detail-meta {
@@ -2820,19 +2826,22 @@ body::after {
 }
 
 .clip-score-breakdown {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
 }
 
 .clip-score-item {
+    flex: 1;
+    min-width: 100px;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    padding: var(--space-2);
+    padding: var(--space-3);
     background: var(--glass-bg);
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
 }
 
 .clip-score-item .score-label {
@@ -2868,11 +2877,19 @@ body::after {
 
 @media (max-width: 768px) {
     .clip-detail {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-6);
     }
 
     .clip-video-player {
-        max-height: 50vh;
+        width: 100%;
+        max-height: 65vh;
+        border-radius: var(--radius-xl);
+        background: #000;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--glass-border);
+        object-fit: contain;
     }
 
     .clips-grid {

@@ -18,9 +18,9 @@ logger = get_logger("services.clip_scoring")
 
 # Default scoring weights (mirrors ScoringWeights in config)
 _DEFAULT_WEIGHTS: dict[str, float] = {
-    "emotion": 0.25,
-    "dialogue": 0.20,
-    "scene_change": 0.20,
+    "emotion": 0.30,
+    "dialogue": 0.25,
+    "scene_change": 0.10,
     "audio": 0.20,
     "face": 0.15,
 }
@@ -184,6 +184,34 @@ def _non_maximum_suppression(
     return sorted(selected, key=lambda c: c["start"])
 
 
+def _snap_to_scene_boundaries(selected: list[dict[str, Any]], scenes: list[dict[str, Any]]) -> None:
+    """Adjust clip boundaries to nearest scene transitions without making clips shorter than 60s."""
+    for clip in selected:
+        closest_start_scene = None
+        min_start_diff = 5.0
+        for s in scenes:
+            diff = abs(s["start"] - clip["start"])
+            if diff <= min_start_diff:
+                min_start_diff = diff
+                closest_start_scene = s["start"]
+
+        closest_end_scene = None
+        min_end_diff = 5.0
+        for s in scenes:
+            diff = abs(s["start"] - clip["end"])
+            if diff <= min_end_diff:
+                min_end_diff = diff
+                closest_end_scene = s["start"]
+
+        new_start = closest_start_scene if closest_start_scene is not None else clip["start"]
+        new_end = closest_end_scene if closest_end_scene is not None else clip["end"]
+
+        if new_end - new_start >= 60.0:
+            clip["start"] = new_start
+            clip["end"] = new_end
+        clip["duration"] = round(clip["end"] - clip["start"], 3)
+
+
 # ── Public API ──────────────────────────────────────────────────────────
 
 @timed(logger_name="processing")
@@ -198,6 +226,7 @@ def score_clips(
     weights: dict[str, float] | None = None,
     max_clips: int = 10,
     min_gap: float = 60.0,
+    snap_to_scenes: bool = True,
 ) -> list[dict[str, Any]]:
     """
     Score and select the best candidate clips from a video.
@@ -217,6 +246,7 @@ def score_clips(
         weights: Scoring-dimension weights dict.
         max_clips: Maximum clips to return.
         min_gap: Minimum gap (seconds) between selected clips.
+        snap_to_scenes: Whether to snap clip boundaries to scene transitions.
 
     Returns:
         A list of scored clip dicts, sorted by start time::
@@ -239,7 +269,8 @@ def score_clips(
             ]
     """
     settings = get_settings()
-    clip_durations = [60]  # Hardcoded to 60 seconds as requested
+    if clip_durations is None:
+        clip_durations = [60, 75, 90]
     if weights is None:
         sw = settings.scoring_weights
         weights = {
@@ -283,13 +314,29 @@ def score_clips(
                     avg_music_score = sum(s.get("music_score", 0.0) for s in cp_segs) / len(cp_segs)
                     cp_score = 0.5 * avg_music_score
 
+            dialogue_bonus = 0.0
+            segs = _items_in_window(transcript.get("segments", []), win_start, win_end)
+            if segs:
+                first_seg = segs[0]
+                if first_seg["start"] < win_start:
+                    dialogue_bonus -= 0.05
+                elif first_seg["start"] - win_start <= 3.0:
+                    dialogue_bonus += 0.05
+                    
+                last_seg = segs[-1]
+                end_time = last_seg.get("end", last_seg["start"])
+                if end_time > win_end:
+                    dialogue_bonus -= 0.05
+                elif win_end - end_time <= 3.0:
+                    dialogue_bonus += 0.05
+
             total = (
                 weights["emotion"] * emo
                 + weights["dialogue"] * dia
                 + weights["scene_change"] * sc
                 + weights["audio"] * aud
                 + weights["face"] * fac
-            ) - cp_score
+            ) - cp_score + dialogue_bonus
 
             all_candidates.append({
                 "start": round(win_start, 3),
@@ -308,6 +355,10 @@ def score_clips(
 
     # Non-maximum suppression
     selected = _non_maximum_suppression(all_candidates, max_clips, min_gap)
+
+    # Scene boundary snapping
+    if snap_to_scenes:
+        _snap_to_scene_boundaries(selected, scenes)
 
     logger.info(
         f"Clip scoring complete: {len(all_candidates)} candidates evaluated, "
