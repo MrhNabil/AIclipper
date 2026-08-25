@@ -682,6 +682,94 @@ const App = {
         });
     },
 
+    async autoEditClip(clipId) {
+        Modal.open('✨ Auto-Editing Clip', `
+            <div style="text-align: center; padding: 2rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem; animation: pulse 2s ease-in-out infinite;">✨</div>
+                <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">Creating Your YouTube Short</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Adding intro, captions, color grading, and metadata...</p>
+                <div id="autoEditProgress">
+                    <div class="progress-bar" style="margin-bottom: 1rem;">
+                        <div class="progress-fill progress-animated" style="width: 0%" id="autoEditProgressBar"></div>
+                    </div>
+                    <div id="autoEditSteps" style="text-align: left; max-width: 360px; margin: 0 auto;">
+                        <div class="auto-edit-step" id="step-intro" style="padding: 0.4rem 0; color: var(--text-muted); font-size: 0.85rem;">⏳ Generating branded intro...</div>
+                        <div class="auto-edit-step" id="step-captions" style="padding: 0.4rem 0; color: var(--text-muted); font-size: 0.85rem;">⏳ Burning animated captions...</div>
+                        <div class="auto-edit-step" id="step-color" style="padding: 0.4rem 0; color: var(--text-muted); font-size: 0.85rem;">⏳ Applying color grading...</div>
+                        <div class="auto-edit-step" id="step-thumb" style="padding: 0.4rem 0; color: var(--text-muted); font-size: 0.85rem;">⏳ Creating thumbnail...</div>
+                        <div class="auto-edit-step" id="step-metadata" style="padding: 0.4rem 0; color: var(--text-muted); font-size: 0.85rem;">⏳ Generating AI metadata...</div>
+                        <div class="auto-edit-step" id="step-final" style="padding: 0.4rem 0; color: var(--text-muted); font-size: 0.85rem;">⏳ Assembling final video...</div>
+                    </div>
+                </div>
+            </div>
+        `, '', '');
+
+        // Simulate progress animation
+        const bar = document.getElementById('autoEditProgressBar');
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 85) {
+                progress += Math.random() * 3;
+                if (bar) bar.style.width = Math.min(progress, 85) + '%';
+            }
+        }, 500);
+
+        // Animate steps
+        const steps = ['step-intro', 'step-captions', 'step-color', 'step-thumb', 'step-metadata', 'step-final'];
+        let stepIdx = 0;
+        const stepInterval = setInterval(() => {
+            if (stepIdx < steps.length) {
+                const el = document.getElementById(steps[stepIdx]);
+                if (el) {
+                    el.style.color = 'var(--accent-cyan)';
+                    el.textContent = '⚙️ ' + el.textContent.substring(2);
+                }
+                // Mark previous as done
+                if (stepIdx > 0) {
+                    const prev = document.getElementById(steps[stepIdx - 1]);
+                    if (prev) {
+                        prev.style.color = 'var(--success)';
+                        prev.textContent = '✅ ' + prev.textContent.substring(3);
+                    }
+                }
+                stepIdx++;
+            }
+        }, 5000);
+
+        try {
+            const response = await fetch(\`/api/clips/\${clipId}/auto-edit\`, { method: 'POST' });
+            const data = await response.json();
+
+            clearInterval(progressInterval);
+            clearInterval(stepInterval);
+
+            if (response.ok) {
+                // Mark all steps done
+                steps.forEach(s => {
+                    const el = document.getElementById(s);
+                    if (el) { el.style.color = 'var(--success)'; el.textContent = '✅ ' + el.textContent.substring(2).replace(/^\\s*/, ''); }
+                });
+                if (bar) bar.style.width = '100%';
+
+                Toast.success('Auto-edit complete! Your Short is ready.');
+
+                // Show preview after 1.5s
+                setTimeout(() => {
+                    Modal.close();
+                    this.viewClip(clipId);
+                }, 1500);
+            } else {
+                Modal.close();
+                Toast.error(data.detail || 'Auto-edit failed');
+            }
+        } catch (e) {
+            clearInterval(progressInterval);
+            clearInterval(stepInterval);
+            Modal.close();
+            Toast.error('Auto-edit failed: ' + e.message);
+        }
+    },
+
     async batchUploadToYouTube() {
         let vid = this.state.video_id;
         if (!vid) {

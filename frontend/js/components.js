@@ -194,7 +194,8 @@ function renderClipCard(clip) {
                     ${renderStatusBadge(clip.status)}
                 </div>
                 <div class="clip-card-actions">
-                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); App.viewClip(${clip.id})" title="Preview">▶ Preview</button>
+                    <button class="btn btn-sm btn-accent" onclick="event.stopPropagation(); App.autoEditClip(${clip.id})" title="Auto Edit">✨ Edit</button>
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); App.viewClip(${clip.id})" title="Preview">▶</button>
                     <a href="${downloadUrl}" class="btn btn-sm btn-secondary" onclick="event.stopPropagation()" download title="Download">⬇️</a>
                     <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); App.deleteClip(${clip.id})" title="Delete">🗑️</button>
                 </div>

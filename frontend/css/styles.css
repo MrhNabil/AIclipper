@@ -3138,3 +3138,21 @@ body::after {
         padding: var(--space-4);
     }
 }
+
+/* ─────────────── ACCENT BUTTON ─────────────── */
+.btn-accent {
+    background: linear-gradient(135deg, #7C3AED, #06B6D4);
+    color: white;
+    border: none;
+}
+
+.btn-accent:hover {
+    background: linear-gradient(135deg, #6D28D9, #0891B2);
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+    transform: translateY(-1px);
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+}

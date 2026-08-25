@@ -158,3 +158,21 @@ async def download_clip(
         media_type="video/mp4",
         filename=download_name,
     )
+
+@router.post("/api/clips/{clip_id}/auto-edit")
+async def auto_edit_clip_endpoint(clip_id: int, db: AsyncSession = Depends(get_db)):
+    """Auto-edit a clip with intro, captions, color grading, and metadata."""
+    import asyncio
+    
+    # Verify clip exists
+    clip = await crud.get_clip(db, clip_id)
+    if not clip:
+        raise HTTPException(404, "Clip not found")
+    if not clip.output_path or not Path(clip.output_path).exists():
+        raise HTTPException(400, "Clip video file not found")
+    
+    # Run auto-edit in background thread
+    from backend.services.auto_editor import auto_edit_clip
+    result = await asyncio.to_thread(auto_edit_clip, clip_id)
+    
+    return {"status": "success", "result": result}
