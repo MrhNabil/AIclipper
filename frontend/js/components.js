@@ -160,17 +160,27 @@ function renderClipCard(clip) {
     const thumbSrc = clip.thumbnails && clip.thumbnails.length > 0
         ? `/${clip.thumbnails[0].filepath.replace(/\\/g, '/')}`
         : '';
+    const videoSrc = clip.output_path
+        ? `/outputs/${clip.output_path.replace(/\\/g, '/').split('/').pop()}`
+        : '';
     const score = clip.total_score != null ? (clip.total_score * 100).toFixed(0) : '—';
     const duration = clip.duration ? formatDuration(clip.duration) : '—';
     const downloadUrl = `/api/clips/${clip.id}/download`;
 
+    // Decide what to show in the thumbnail area: image > video > placeholder
+    let thumbnailContent;
+    if (thumbSrc) {
+        thumbnailContent = `<img src="${thumbSrc}" alt="Clip ${clip.clip_number}" loading="lazy">`;
+    } else if (videoSrc) {
+        thumbnailContent = `<video src="${videoSrc}" muted preload="metadata" onloadeddata="this.currentTime=1" style="width:100%;height:100%;object-fit:cover;"></video>`;
+    } else {
+        thumbnailContent = `<div class="clip-thumb-placeholder">🎬</div>`;
+    }
+
     return `
         <div class="clip-card" data-clip-id="${clip.id}">
             <div class="clip-card-thumbnail" onclick="App.viewClip(${clip.id})">
-                ${thumbSrc
-                    ? `<img src="${thumbSrc}" alt="Clip ${clip.clip_number}" loading="lazy">`
-                    : `<div class="clip-thumb-placeholder">🎬</div>`
-                }
+                ${thumbnailContent}
                 <div class="clip-card-overlay">
                     <button class="play-button" title="Preview clip">▶</button>
                 </div>

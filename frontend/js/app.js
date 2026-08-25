@@ -752,13 +752,13 @@ const App = {
                             <span class="account-icon">📺</span>
                             <h3>YouTube</h3>
                             <p class="text-muted">Upload Shorts via YouTube Data API</p>
-                            <span class="badge badge-warning">Requires OAuth Setup</span>
+                            <button class="btn btn-sm btn-primary" onclick="App._showYouTubeSetup()" style="margin-top: 0.5rem;">🔗 Connect / Setup</button>
                         </div>
                         <div class="account-card">
                             <span class="account-icon">📘</span>
                             <h3>Facebook</h3>
                             <p class="text-muted">Upload Reels via Graph API</p>
-                            <span class="badge badge-warning">Requires Token</span>
+                            <span class="badge badge-warning">Coming Soon</span>
                         </div>
                         <div class="account-card account-coming-soon">
                             <span class="account-icon">🎵</span>
@@ -776,16 +776,51 @@ const App = {
                 </div>
 
                 <div class="panel">
-                    <div class="panel-header"><h2>Ready to Publish (${clips.length})</h2></div>
+                    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <h2>Ready to Publish (${clips.length})</h2>
+                        ${clips.length > 0 ? `<button class="btn btn-primary" onclick="App.batchUploadToYouTube()">🚀 Upload All to YouTube</button>` : ''}
+                    </div>
                     <div class="panel-body">
                         ${clips.length === 0
-                            ? renderEmptyState('🚀', 'No clips ready to publish')
+                            ? renderEmptyState('🚀', 'No clips ready to publish', '<button class="btn btn-primary btn-sm" onclick="App.navigate(\'upload\')">Upload & Process a Video</button>')
                             : '<div class="clips-grid">' + clips.map(c => renderClipCard(c)).join('') + '</div>'
                         }
                     </div>
                 </div>
             </div>
         `;
+    },
+
+    _showYouTubeSetup() {
+        Modal.open('YouTube Setup Guide', `
+            <div style="padding: 0.5rem; line-height: 1.8;">
+                <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">How to Connect YouTube</h3>
+                <ol style="color: var(--text-secondary); padding-left: 1.5rem;">
+                    <li>Go to <a href="https://console.cloud.google.com" target="_blank" style="color: var(--accent-cyan);">Google Cloud Console</a></li>
+                    <li>Create a new project (or select existing)</li>
+                    <li>Enable <strong>YouTube Data API v3</strong></li>
+                    <li>Go to <strong>APIs & Services → Credentials</strong></li>
+                    <li>Create <strong>OAuth 2.0 Client ID</strong> (Desktop App)</li>
+                    <li>Download the JSON and save it as:<br>
+                        <code style="background: var(--glass-bg); padding: 4px 8px; border-radius: 4px; color: var(--accent-cyan);">client_secret.json</code>
+                        in the AIClipper project root</li>
+                    <li>Click "Start OAuth" below — a browser window will open for consent</li>
+                </ol>
+                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.2); border-radius: 8px;">
+                    <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                        <strong style="color: var(--accent-cyan);">💡 Tip:</strong> After first-time OAuth, your token is cached automatically. You won't need to re-authenticate unless the token expires.
+                    </p>
+                </div>
+            </div>
+        `, `
+            <button class="btn btn-secondary" onclick="Modal.close()">Close</button>
+            <button class="btn btn-primary" onclick="App._triggerYouTubeOAuth()">🔐 Start OAuth</button>
+        `, 'lg');
+    },
+
+    async _triggerYouTubeOAuth() {
+        Toast.show('YouTube OAuth will open in a browser window when you upload. Make sure client_secret.json is in the project root.', 'info', 6000);
+        Modal.close();
     },
 
     publishClipDialog(clipId) {
