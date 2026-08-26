@@ -737,7 +737,7 @@ const App = {
         }, 5000);
 
         try {
-            const response = await fetch(\`/api/clips/\${clipId}/auto-edit\`, { method: 'POST' });
+            const response = await fetch(`/api/clips/${clipId}/auto-edit`, { method: 'POST' });
             const data = await response.json();
 
             clearInterval(progressInterval);
@@ -747,7 +747,7 @@ const App = {
                 // Mark all steps done
                 steps.forEach(s => {
                     const el = document.getElementById(s);
-                    if (el) { el.style.color = 'var(--success)'; el.textContent = '✅ ' + el.textContent.substring(2).replace(/^\\s*/, ''); }
+                    if (el) { el.style.color = 'var(--success)'; el.textContent = '✅ ' + el.textContent.substring(2).replace(/^\s*/, ''); }
                 });
                 if (bar) bar.style.width = '100%';
 
