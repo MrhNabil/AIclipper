@@ -86,7 +86,10 @@ def generate_intro(title: str, output_path: Path, duration: float = 3.0) -> Path
     )
     args = [
         "-f", "lavfi", "-i", f"color=c=#0c0c1d:s=1080x1920:d={duration}:r=30",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-map", "0:v", "-map", "1:a",
         "-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-ac", "2", "-ar", "44100",
         "-t", str(duration), "-y", str(output_path.resolve())
     ]
     _run_ffmpeg_safe(args, "Generate Intro")
@@ -99,7 +102,7 @@ def generate_intro(title: str, output_path: Path, duration: float = 3.0) -> Path
 @timed(logger_name="processing")
 def apply_effects(input_path: Path, output_path: Path, ass_path: Path | None, energy_peaks: list[float]) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    vf_parts = ["eq=contrast=1.08:brightness=0.02:saturation=1.12", "unsharp=5:5:0.6"]
+    vf_parts = ["fps=30", "eq=contrast=1.08:brightness=0.02:saturation=1.12", "unsharp=5:5:0.6"]
     if ass_path and ass_path.is_file():
         sub_str = ass_path.as_posix().replace(":", "\\:")
         vf_parts.append(f"ass='{sub_str}'")
@@ -107,7 +110,7 @@ def apply_effects(input_path: Path, output_path: Path, ass_path: Path | None, en
     args = [
         "-i", str(input_path.resolve()), "-vf", vf,
         "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-        "-c:a", "aac", "-ac", "2", "-y", str(output_path.resolve())
+        "-c:a", "aac", "-ac", "2", "-ar", "44100", "-y", str(output_path.resolve())
     ]
     _run_ffmpeg_safe(args, "Apply Effects")
     if not output_path.exists() or output_path.stat().st_size < 100:
@@ -151,8 +154,7 @@ def concat_videos(intro_path: Path, main_path: Path, output_path: Path) -> Path:
     )
     args = [
         "-f", "concat", "-safe", "0", "-i", str(list_path),
-        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-        "-c:a", "aac", "-ac", "2", "-y", str(abs_output)
+        "-c", "copy", "-y", str(abs_output)
     ]
     try:
         _run_ffmpeg_safe(args, "Concat Videos")
@@ -256,6 +258,11 @@ def auto_edit_clip(clip_id: int, progress_callback=None) -> dict:
                 description=f"{description}\n\n{hashtags}",
                 hashtags=hashtags, keywords=keywords,
             )
+            
+            if thumb_path.exists():
+                await crud.create_thumbnail(
+                    db, clip_id=clip_id, filepath=str(thumb_path), is_selected=True
+                )
 
             # Cleanup
             for p in [intro_path, graded_path]:

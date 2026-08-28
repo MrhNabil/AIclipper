@@ -753,10 +753,15 @@ const App = {
 
                 Toast.success('Auto-edit complete! Your Short is ready.');
 
+                // Re-render clips list to update the thumbnail and card state
+                if (App.currentPage === 'clips') {
+                    App._renderClips(document.getElementById('contentArea'));
+                }
+
                 // Show preview after 1.5s
                 setTimeout(() => {
                     Modal.close();
-                    this.viewClip(clipId);
+                    App.viewClip(clipId);
                 }, 1500);
             } else {
                 Modal.close();
