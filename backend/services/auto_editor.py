@@ -102,7 +102,13 @@ def generate_intro(title: str, output_path: Path, duration: float = 3.0) -> Path
 @timed(logger_name="processing")
 def apply_effects(input_path: Path, output_path: Path, ass_path: Path | None, energy_peaks: list[float]) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    vf_parts = ["fps=30", "eq=contrast=1.08:brightness=0.02:saturation=1.12", "unsharp=5:5:0.6"]
+    vf_parts = [
+        "scale=1080:1920",
+        "setsar=1",
+        "fps=30",
+        "eq=contrast=1.08:brightness=0.02:saturation=1.12",
+        "unsharp=5:5:0.6"
+    ]
     if ass_path and ass_path.is_file():
         sub_str = ass_path.as_posix().replace(":", "\\:")
         vf_parts.append(f"ass='{sub_str}'")
