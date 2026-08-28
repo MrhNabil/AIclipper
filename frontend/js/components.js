@@ -94,6 +94,13 @@ const Modal = {
         if (this._overlay) {
             this._overlay.classList.remove('active');
             document.body.style.overflow = '';
+            // Empty body to stop any playing videos/audio
+            setTimeout(() => {
+                if (!this._overlay.classList.contains('active')) {
+                    this._body.innerHTML = '';
+                    this._footer.innerHTML = '';
+                }
+            }, 300); // Wait for fade out animation
         }
     },
 
