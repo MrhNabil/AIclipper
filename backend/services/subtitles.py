@@ -160,7 +160,7 @@ def generate_ass_with_highlights(
     clip_start: float = 0.0,
     clip_end: float | None = None,
     font: str = "Arial",
-    font_size: int = 24,
+    font_size: int = 65,
     color: str = "#FFFFFF",
     highlight_color: str = "#FFD700",
 ) -> Path:
@@ -242,7 +242,10 @@ def generate_ass_with_highlights(
                 f"{{\\kf{word_dur_cs}}}{{\\1c{highlight_ass}}}{w['word']}"
             )
 
-        text = " ".join(text_parts)
+        # Add a bounce pop-in animation to the start of the line
+        pop_anim = "{\\fscx0\\fscy0\\t(0,150,\\fscx110\\fscy110)\\t(150,250,\\fscx100\\fscy100)}"
+        text = pop_anim + " ".join(text_parts)
+        
         start_str = _format_ass_time(line_start)
         end_str = _format_ass_time(line_end)
         dialogue_lines.append(

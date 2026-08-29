@@ -131,11 +131,14 @@ def generate_thumbnail(input_path: Path, title: str, output_path: Path) -> Path:
     safe_title = _escape_drawtext(title)
     fe = FONT_FILE.replace(":", "\\:")
     vf = (
-        "drawbox=x=0:y=ih-ih/4:w=iw:h=ih/4:color=black@0.6:t=fill,"
-        f"drawtext=fontfile='{fe}':text='{safe_title}':fontsize=44:fontcolor=white"
-        f":x=(w-tw)/2:y=h-h/4+(h/4-th)/2:borderw=2:bordercolor=black"
+        "thumbnail=100,"  # Pick the best frame out of ~100 frames
+        "drawbox=y=ih-h-120:w=iw:h=180:color=black@0.7:t=fill,"
+        f"drawtext=fontfile='{fe}':text='{safe_title}':fontsize=64:fontcolor=yellow:fontface=bold"
+        f":x=(w-tw)/2:y=ih-120-90+(180-th)/2:borderw=4:bordercolor=black"
     )
-    args = ["-ss", "1", "-i", str(input_path.resolve()), "-vframes", "1", "-vf", vf, "-q:v", "2", "-y", str(output_path.resolve())]
+    # We no longer need -ss 1 since thumbnail filter evaluates multiple frames and picks the best one.
+    # However, to avoid scanning the entire video if it's long, we can just feed it the first 300 frames.
+    args = ["-i", str(input_path.resolve()), "-vframes", "1", "-vf", vf, "-q:v", "2", "-y", str(output_path.resolve())]
     try:
         _run_ffmpeg_safe(args, "Generate Thumbnail")
     except RuntimeError:

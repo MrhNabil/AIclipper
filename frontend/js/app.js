@@ -1027,9 +1027,10 @@ const App = {
                             <div class="form-group">
                                 <label>Ollama Model</label>
                                 <select class="form-input" id="setOllamaModel">
-                                    <option value="qwen2" selected>Qwen 2</option>
-                                    <option value="llama3">Llama 3</option>
-                                    <option value="gemma2">Gemma 2</option>
+                                    <option value="qwen2.5:1.5b" selected>Qwen 2.5 (1.5B) - Very Fast CPU</option>
+                                    <option value="qwen2.5:7b-instruct">Qwen 2.5 (7B) - Slower</option>
+                                    <option value="llama3.2:1b">Llama 3.2 (1B) - Fastest</option>
+                                    <option value="llama3">Llama 3 (8B) - Slow CPU</option>
                                 </select>
                             </div>
                         </div>
