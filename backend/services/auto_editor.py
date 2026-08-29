@@ -127,26 +127,58 @@ def apply_effects(input_path: Path, output_path: Path, ass_path: Path | None, en
 
 @timed(logger_name="processing")
 def generate_thumbnail(input_path: Path, title: str, output_path: Path) -> Path:
+    """Generate a YouTube-Shorts-style thumbnail: best frame + short bold text."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    safe_title = _escape_drawtext(title)
+    
+    # Shorten the title to a punchy 3-5 word clickbait hook
+    short_title = _make_clickbait_title(title)
+    safe_title = _escape_drawtext(short_title)
     fe = FONT_FILE.replace(":", "\\:")
+    
+    # Use thumbnail filter to find the most interesting frame,
+    # then overlay a dark bar at bottom with big bold text
+    # Note: FFmpeg drawtext y expressions must be simple
     vf = (
-        "thumbnail=100,"  # Pick the best frame out of ~100 frames
-        "drawbox=y=ih-h-120:w=iw:h=180:color=black@0.7:t=fill,"
-        f"drawtext=fontfile='{fe}':text='{safe_title}':fontsize=64:fontcolor=yellow:fontface=bold"
-        f":x=(w-tw)/2:y=ih-120-90+(180-th)/2:borderw=4:bordercolor=black"
+        "thumbnail=300,"
+        "scale=1080:1920:force_original_aspect_ratio=decrease,"
+        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,"
+        # Dark overlay at bottom quarter
+        "drawbox=x=0:y=1440:w=iw:h=480:color=black@0.75:t=fill,"
+        # Main title text - big, yellow, with thick black border
+        f"drawtext=fontfile='{fe}':text='{safe_title}':fontsize=72"
+        f":fontcolor=yellow:x=(w-tw)/2:y=1440+(480-th)/2"
+        f":borderw=5:bordercolor=black:shadowcolor=black@0.8:shadowx=3:shadowy=3"
     )
-    # We no longer need -ss 1 since thumbnail filter evaluates multiple frames and picks the best one.
-    # However, to avoid scanning the entire video if it's long, we can just feed it the first 300 frames.
-    args = ["-i", str(input_path.resolve()), "-vframes", "1", "-vf", vf, "-q:v", "2", "-y", str(output_path.resolve())]
+    args = ["-i", str(input_path.resolve()), "-vframes", "1", "-vf", vf,
+            "-q:v", "1", "-y", str(output_path.resolve())]
     try:
         _run_ffmpeg_safe(args, "Generate Thumbnail")
     except RuntimeError:
-        args2 = ["-ss", "0", "-i", str(input_path.resolve()), "-vframes", "1", "-q:v", "2", "-y", str(output_path.resolve())]
+        # Fallback: just grab first frame with no text
+        args2 = ["-ss", "1", "-i", str(input_path.resolve()),
+                 "-vframes", "1", "-q:v", "2", "-y", str(output_path.resolve())]
         _run_ffmpeg_safe(args2, "Thumbnail fallback")
     if output_path.exists():
         logger.info(f"Thumbnail: {output_path.stat().st_size} bytes")
     return output_path
+
+
+def _make_clickbait_title(full_title: str) -> str:
+    """Turn a full title into a short 3-5 word clickbait hook for the thumbnail."""
+    # Strip common filler
+    for filler in ["Check out this amazing", "Check out this", "Check out", "Watch this"]:
+        if full_title.lower().startswith(filler.lower()):
+            full_title = full_title[len(filler):].strip()
+    
+    words = full_title.split()
+    if len(words) <= 5:
+        return full_title.upper()
+    
+    # Take first 4-5 meaningful words, make them punchy
+    hook = " ".join(words[:5])
+    if not hook.endswith(("!", "?", "...")):
+        hook += "!"
+    return hook.upper()
 
 
 @timed(logger_name="processing")
@@ -213,8 +245,8 @@ def auto_edit_clip(clip_id: int, progress_callback=None) -> dict:
 
             logger.info("Step 1: Generating metadata...")
             metadata = generate_metadata(transcript_text)
-            title = metadata.get("title", "Awesome Clip").strip()
-            description = metadata.get("description", "").strip()
+            title = metadata.get("title", "Awesome Clip").strip().strip('"').strip("'")
+            description = metadata.get("description", "").strip().strip('"').strip("'")
             hashtags = metadata.get("hashtags", "").strip()
             keywords = metadata.get("keywords", "").strip()
 

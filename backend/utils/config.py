@@ -155,7 +155,7 @@ class Settings(BaseSettings):
 
     # --- Ollama ---
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "qwen2"
+    ollama_model: str = "qwen2.5:1.5b"
     ollama_timeout: int = 120
 
     # --- MediaPipe ---
@@ -243,7 +243,7 @@ class Settings(BaseSettings):
         if "ollama" in yaml_data:
             o = yaml_data["ollama"]
             flat["ollama_host"] = o.get("host", "http://localhost:11434")
-            flat["ollama_model"] = o.get("model", "qwen2")
+            flat["ollama_model"] = o.get("model", "qwen2.5:1.5b")
             flat["ollama_timeout"] = o.get("timeout", 120)
         if "clips" in yaml_data:
             c = yaml_data["clips"]
