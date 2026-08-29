@@ -14,6 +14,16 @@ An AI-powered, completely local, CPU-friendly desktop application that automatic
 * **Local AI Brain:** Uses Ollama (running entirely locally on your CPU) to generate catchy titles, descriptions, and SEO hashtags.
 * **No GPU Required:** Heavily optimized FFmpeg pipelines ensure it runs smoothly on standard consumer laptops and CPUs.
 
+> [!IMPORTANT]  
+> 🇺🇸 **ENGLISH LANGUAGE ONLY:** The clipping algorithms, audio-processing, and AI text generators are explicitly configured to process and evaluate **English-language videos only**.
+
+## 🎥 How It Works (The Workflow)
+
+1. **Upload Your Video:** Simply upload any long-form English video through the web interface.
+2. **Automatic Analysis:** The backend engine automatically analyzes the video, transcribes the audio, and evaluates emotional peaks and scene changes.
+3. **Smart Division:** It seamlessly divides the long video into multiple bite-sized, high-retention clips (e.g., 15s, 30s, or 60s sections).
+4. **One-Click Auto-Edit:** Click "Auto Edit" on any divided clip to automatically generate the intro, crop to 9:16 vertical format, add popping subtitles, and design a clickbait thumbnail!
+
 ## 📋 Prerequisites
 
 Before you begin, ensure you have the following installed on your system:
